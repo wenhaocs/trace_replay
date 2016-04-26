@@ -7,13 +7,14 @@ void main()
 
 void replay(char *traceName,char *configName)
 {
-	struct config_info* config;
-	struct trace_info* req,front=NULL,rear=NULL;
+	struct config_info *config;
+	struct trace_info *req,*front=NULL,*rear=NULL;
 	int fd;
 	char *buf;
 	int i,j;
 	int nowTime,reqTime;
 	
+	confg=(struct config_info *)malloc(sizeof(struct config_info));
 	req=(struct trace_info *)malloc(sizeof(struct trace_info));
 	config_read(config,configName);
 	trace_read(front,rear,traceName);

@@ -36,6 +36,7 @@ struct trace_info{
 	long long lba;
 	unsigned int size;
 	unsigned int type;
+	struct trace_info *next;
 };
 
 struct aiocb_info{
@@ -54,6 +55,7 @@ struct aiocb_info{
 };
 
 //replay.c
+void replay(char *traceName,char *configName);
 void config_read(struct config_info *config,const char *filename);
 void trace_read(struct trace_info *front,struct trace_info *rear,const char *filename);
 int time_now();
