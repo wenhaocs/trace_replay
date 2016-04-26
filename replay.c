@@ -14,7 +14,7 @@ void replay(char *traceName,char *configName)
 	int i,j;
 	int nowTime,reqTime;
 	
-	confg=(struct config_info *)malloc(sizeof(struct config_info));
+	config=(struct config_info *)malloc(sizeof(struct config_info));
 	req=(struct trace_info *)malloc(sizeof(struct trace_info));
 	config_read(config,configName);
 	trace_read(front,rear,traceName);
@@ -30,7 +30,7 @@ void replay(char *traceName,char *configName)
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
 	{
 		fprintf(stderr, "Error allocating buffer\n");
-		return 1;
+		return;
 	}
 	for(i=0;i<LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK;i++)
 	{
@@ -74,7 +74,7 @@ void config_read(struct config_info *config,const char *filename)
 		if(line[0]=='#'||line[0]==' ') continue;
         ptr=strchr(line,'=');
         if(!ptr) continue;
-        name=ptr-buf;	//the end of name string+1
+        name=ptr-line;	//the end of name string+1
         value=name+1;	//the start of value string
         while(line[name-1]==' ') name--;
         line[name]=0;
@@ -137,7 +137,7 @@ int time_elapsed(int begin)
 
 static void IOCompleted(sigval_t sigval)
 {
-	struct aiocb_info *cb;
+	auto cb;
 	struct trace_info *req;
 	int latency;
 	int error;
@@ -148,7 +148,7 @@ static void IOCompleted(sigval_t sigval)
 	error=aio_error(cb);
 	if(error)
 	{
-		if(error!=ECANCELED)
+		if(error != ECANCELED)
 		{
 			fprintf(stderr,"Error completing i/o:%d\n",error);
 		}
@@ -172,8 +172,8 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 	int error=0;
 
 	cb->aio_fildes = fd;
-	cb->aio_nbytes = req.size*512;
-	cb->aio_offset = req.lba*512;
+	cb->aio_nbytes = req->size*512;
+	cb->aio_offset = req->lba*512;
 
 	cb->aio_sigevent.sigev_notify = SIGEV_THREAD;
 	cb->aio_sigevent.sigev_notify_function = IOCompleted;
@@ -216,9 +216,9 @@ static void init_aio()
 {
 	aioinit aioParam = {0};
 	//two thread for each device is better
-	aioParam.aio_threads = AIO_THREAD_POOL_SIZE;
-	aioParam.aio_num = 2048;
-	aioParam.aio_idle_time = 1;	
+	aioParam->aio_threads = AIO_THREAD_POOL_SIZE;
+	aioParam->aio_num = 2048;
+	aioParam->aio_idle_time = 1;	
 	aio_init(&aioParam);
 }
 
@@ -278,7 +278,7 @@ void queue_print(struct trace_info *front,struct trace_info *rear)
 	struct trace_info* temp = front;
 	while(temp != NULL) 
 	{
-		printf("%d ",temp->time);
+		printf("%lf ",temp->time);
 		printf("%d ",temp->dev);
 		printf("%lld ",temp->lba);
 		printf("%d ",temp->size);
