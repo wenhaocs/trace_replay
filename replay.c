@@ -12,7 +12,6 @@ void replay(char *traceName,char *configName)
 	int fd;
 	char *buf;
 	int i,j;
-	int errno=0;
 	int nowTime,reqTime;
 	
 	config=(struct config_info *)malloc(sizeof(struct config_info));
@@ -162,7 +161,7 @@ static void IOCompleted(sigval_t sigval)
 			count,cb->aiocb->aio_nbytes);
 	}
 	req=cb->req;
-	printf("%d,%lld,%d,%d ",req->time,req->lba,req->size,req->type);
+	printf("%lf,%lld,%d,%d ",req->time,req->lba,req->size,req->type);
 	printf("latency=%d\n",latency);
 }
 
@@ -181,9 +180,9 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 	cb->aiocb->aio_sigevent.sigev_value.sival_ptr = cb->aiocb;
 
 	//write and read different buffer
-	if(!USE_GLOBAL_BUFF)
+	if(USE_GLOBAL_BUFF!=1)
 	{
-		if (posix_memalign((void**)&buf_new, MEM_ALIGN, req.size)) 
+		if (posix_memalign((void**)&buf_new, MEM_ALIGN, req->size)) 
 		{
 			fprintf(stderr, "Error allocating buffer\n");
 		}
@@ -197,11 +196,11 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 	cb->req=req;
 	cb->beginTime=time_now();
 
-	if(req.type==1)
+	if(req->type==1)
 	{
 		error=aio_write(cb->aiocb);
 	}
-	else if(req.type==0)
+	else if(req->type==0)
 	{
 		error=aio_read(cb->aiocb);
 	}
@@ -215,12 +214,12 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 
 static void init_aio()
 {
-	aioinit aioParam = {0};
+	struct aioinit *aioParam = {0};
 	//two thread for each device is better
 	aioParam->aio_threads = AIO_THREAD_POOL_SIZE;
 	aioParam->aio_num = 2048;
 	aioParam->aio_idle_time = 1;	
-	aio_init(&aioParam);
+	aio_init(aioParam);
 }
 
 

@@ -1,6 +1,7 @@
 #ifndef _REPLAY_H
 #define _REPLAY_H
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,16 +11,17 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <linux/fs.h>
-#include <chrono.h>
-#include <ratio.h>
-#include <thread.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+//#include <pthreads.h>
 
 #define SUCCESS 1
 #define FAILURE 0
 #define BUFSIZE	300
 
 #define MEM_ALIGN				512  // Memory alignment
-#define USE_GLOBAL_BUFF			true 
+#define USE_GLOBAL_BUFF			1 
 #define AIO_THREAD_POOL_SIZE	50
 
 #define BYTE_PER_BLOCK			512 
