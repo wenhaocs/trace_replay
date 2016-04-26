@@ -5,27 +5,21 @@ void main()
 
 }
 
-void replay(char *traceName)
+void replay(char *traceName,char *configName)
 {
-	struct config_info *config;
-	struct trace_info *req,front=NULL,rear=NULL;
+	struct config_info* config;
+	struct trace_info* req,front=NULL,rear=NULL;
 	int fd;
 	char *buf;
 	int i,j;
 	int nowTime,reqTime;
 	
 	req=(struct trace_info *)malloc(sizeof(struct trace_info));
-	config_read(config,"config.txt");
-	while(trace_read(req,"hm_0.ascii")!=FAILURE)
-	{
-		req->time=req->time*1000;	//ms-->us
-		req->size=req->size*BYTE_PER_BLOCK;
-		req->lba=(req->lba%BLOCK_PER_DRIVE)*BYTE_PER_BLOCK;
-		queue_push(front,rear,req);
-	}
+	config_read(config,configName);
+	trace_read(front,rear,traceName);
 
 	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
-	if (fd < 0) 
+	if(fd < 0) 
 	{
 		fprintf(stderr, "Value of errno: %d\n", errno);
        	printf("Cannot open\n");
@@ -37,19 +31,17 @@ void replay(char *traceName)
 		fprintf(stderr, "Error allocating buffer\n");
 		return 1;
 	}
-	for(j=0;j<LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK;j++)
+	for(i=0;i<LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK;i++)
 	{
 		//Generate random alphabets to write to file
-		buf[j]=(char)(rand()%26+65);
+		buf[i]=(char)(rand()%26+65);
 	}
 
-	/****************/
-	replayer_aio_init();
+	init_aio();
 
-	while(front)
+	while(front!=NULL)
 	{
-		queue_front(front,rear,req);
-		queue_pop(front,rear);
+		queue_pop(front,rear,req);
 		nowTime=time_now();
 		reqTime=req->time;
 		while(nowTime < reqTime)
@@ -61,12 +53,11 @@ void replay(char *traceName)
 
 }
 
-
 void config_read(struct config_info *config,const char *filename)
 {
 	FILE *configFile;
 	int name,value;
-	char line[SIZEBUF];
+	char line[BUFSIZE];
 	char *ptr;
 
 	configFile=fopen(filename,"r");
@@ -75,9 +66,8 @@ void config_read(struct config_info *config,const char *filename)
 		printf("error: opening config file\n");
 		exit(-1);
 	}
-	
 	//read config file
-	memset(line,0,sizeof(char)*SIZEBUF);
+	memset(line,0,sizeof(char)*BUFSIZE);
 	while(fgets(line,sizeof(line),configFile))
 	{
 		if(line[0]=='#'||line[0]==' ') continue;
@@ -91,7 +81,7 @@ void config_read(struct config_info *config,const char *filename)
 		if(strcmp(line,"device")==0)
 		{
 			sscanf(buf+value,"%s",config->device);
-			config->device_num++;
+			config->deviceNum++;
 		}
 		else if(strcmp(line,"trace")==0)
 		{
@@ -101,17 +91,19 @@ void config_read(struct config_info *config,const char *filename)
 		{
 			sscanf(buf+value,"%s",config->logFileName);
 		}
-		memset(line,0,sizeof(char)*SIZEBUF);
+		memset(line,0,sizeof(char)*BUFSIZE);
 	}
 	fclose(configFile);
 }
 
-int trace_read(struct trace_info *req,const char *filename)
+void trace_read(struct trace_info *front,struct trace_info *rear,const char *filename)
 {
 	FILE *traceFile;
-	char line[SIZEBUF];
+	char line[BUFSIZE];
+	struct trace_info* req;
 
 	traceFile=fopen(filename,"r");
+	req=(struct trace_info *)malloc(sizeof(struct trace_info));
 	if(traceFile==NULL)
 	{
 		printf("error: opening trace file\n");
@@ -121,32 +113,38 @@ int trace_read(struct trace_info *req,const char *filename)
 	{
 		sscanf(line,"%lf %d %lld %d %d",&req->time,&req->dev,&req->lba,&req->size,&req->type);
 		//push into request queue
+		req->time=req->time*1000;	//ms-->us
+		req->size=req->size*BYTE_PER_BLOCK;
+		req->lba=(req->lba%BLOCK_PER_DRIVE)*BYTE_PER_BLOCK;
+		queue_push(front,rear,req);
 	}
 	fclose(traceFile);
-	return SUCCESS;
 }
 
 int time_now()
 {
 	struct timeval now;
 	gettimeofday(&now,NULL);
-	return 1000000*now.tv_sec+now.tv_usec;
+	return 1000000*now.tv_sec+now.tv_usec;	//us
 }
+
 int time_elapsed(int begin)
 {
-	return time_now()-begin;
+	int now=time_now();
+	return now-begin;	//us
 }
 
 static void IOCompleted(sigval_t sigval)
 {
-	struct aiocb_info *request;
+	struct aiocb_info *cb;
+	struct trace_info *req;
 	int latency;
 	int error;
 	int count;
 
-	request=(struct aiocb_info *)sigval.sival_ptr;
-	latency=time_elapsed(request->beginTime);
-	error=aio_error(request);
+	cb=(struct aiocb_info *)sigval.sival_ptr;
+	latency=time_elapsed(cb->beginTime);
+	error=aio_error(cb);
 	if(error)
 	{
 		if(error!=ECANCELED)
@@ -155,26 +153,26 @@ static void IOCompleted(sigval_t sigval)
 		}
 		return;
 	}
-	count=aio_return(request);
-	if(count<(int)request->aio_nbytes)
+	count=aio_return(cb);
+	if(count<(int)cb->aio_nbytes)
 	{
 		fprintf(stderr, "Warning I/O completed:%db but requested:%ldb\n",
-			count,request->aio_nbytes);
+			count,cb->aio_nbytes);
 	}
-	struct trace_info *io=request->req;
-	fprintf(log,"%d\n",latency);
-
+	req=cb->req;
+	printf("%d,%lld,%d,%d ",req->time,req->lba,req->size,req->type);
+	printf("latency=%d\n",latency);
 }
 
-static struct aiocb_info *perform_aio(int fd, void *buf,struct trace_info *io)
+static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 {
 	struct aiocb_info *cb;
 	char *buf_new;
 	int error=0;
 
 	cb->aio_fildes = fd;
-	cb->aio_nbytes = io.size*512;
-	cb->aio_offset = io.lba*512;
+	cb->aio_nbytes = req.size*512;
+	cb->aio_offset = req.lba*512;
 
 	cb->aio_sigevent.sigev_notify = SIGEV_THREAD;
 	cb->aio_sigevent.sigev_notify_function = IOCompleted;
@@ -183,24 +181,25 @@ static struct aiocb_info *perform_aio(int fd, void *buf,struct trace_info *io)
 	//write and read different buffer
 	if(!USE_GLOBAL_BUFF)
 	{
-		if (posix_memalign((void**)&buf_new, MEM_ALIGN, io.size)) 
+		if (posix_memalign((void**)&buf_new, MEM_ALIGN, req.size)) 
 		{
 			fprintf(stderr, "Error allocating buffer\n");
 		}
 		cb->aio_buf = buf_new;
-	}else
+	}
+	else
 	{
 		cb->aio_buf = buf;
 	}
 
-	cb->req=io;
+	cb->req=req;
 	cb->beginTime=time_now();
 
-	if(io.type==1)
+	if(req.type==1)
 	{
 		error=aio_write(cb);
 	}
-	else if(io.type==0)
+	else if(req.type==0)
 	{
 		error=aio_read(cb);
 	}
@@ -212,7 +211,7 @@ static struct aiocb_info *perform_aio(int fd, void *buf,struct trace_info *io)
 	return cb;
 }
 
-static void replayer_aio_init()
+static void init_aio()
 {
 	aioinit aioParam = {0};
 	//two thread for each device is better

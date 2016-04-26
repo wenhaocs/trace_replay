@@ -13,7 +13,7 @@
 
 #define SUCCESS 1
 #define FAILURE 0
-#define SIZEBUF	300
+#define BUFSIZE	300
 
 #define MEM_ALIGN				512  // Memory alignment
 #define USE_GLOBAL_BUFF			true 
@@ -26,7 +26,7 @@
 struct config_info{
 	char device[64];
 	char traceFileName[64];
-	int	 device_num;
+	int	 deviceNum;
 	char logFileName[64];
 };
 
@@ -55,7 +55,7 @@ struct aiocb_info{
 
 //replay.c
 void config_read(struct config_info *config,const char *filename);
-int trace_read(struct trace_info *req,const char *filename);
+void trace_read(struct trace_info *front,struct trace_info *rear,const char *filename);
 int time_now();
 int time_elapsed(int begin);
 static void IOCompleted(sigval_t sigval);
@@ -64,8 +64,7 @@ static void replayer_aio_init();
 
 //queue.c
 void queue_push(struct trace_info *front,struct trace_info *rear,struct trace_info *req);
-void queue_pop(struct trace_info *front,struct trace_info *rear);
-void queue_front(struct trace_info *front,struct trace_info *rear,struct trace_info *req);
+void queue_pop(struct trace_info *front,struct trace_info *rear,struct trace_info *req);
 void queue_print(struct trace_info *front,struct trace_info *rear);
 
 #endif
