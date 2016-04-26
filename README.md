@@ -1,6 +1,8 @@
 # TraceReplayer
 gcc replay.c -lrt
 
+Notes
+
 error:	  aio.cc:(.text+0x156): undefined reference to `aio_read'
 
 solution: add "-lrt" to link command. -lrt is necessary here. 
