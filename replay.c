@@ -23,8 +23,8 @@ void replay(char *traceName,char *configName)
 	if(fd < 0) 
 	{
 		fprintf(stderr, "Value of errno: %d\n", errno);
-       	printf("Cannot open\n");
-       	exit(1);
+       		printf("Cannot open\n");
+       		exit(1);
 	}
 
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
