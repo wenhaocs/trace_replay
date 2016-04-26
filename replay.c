@@ -72,12 +72,12 @@ void config_read(struct config_info *config,const char *filename)
 	while(fgets(line,sizeof(line),configFile))
 	{
 		if(line[0]=='#'||line[0]==' ') continue;
-        ptr=strchr(line,'=');
-        if(!ptr) continue;
-        name=ptr-line;	//the end of name string+1
-        value=name+1;	//the start of value string
-        while(line[name-1]==' ') name--;
-        line[name]=0;
+       		 ptr=strchr(line,'=');
+        	if(!ptr) continue;
+        	name=ptr-line;	//the end of name string+1
+       		value=name+1;	//the start of value string
+        	while(line[name-1]==' ') name--;
+        	line[name]=0;
 
 		if(strcmp(line,"device")==0)
 		{
