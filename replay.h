@@ -12,9 +12,8 @@
 #include <sys/ioctl.h>
 #include <linux/fs.h>
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-//#include <pthreads.h>
+//#include <sys/types.h>
+//#include <sys/stat.h>
 
 #define SUCCESS 1
 #define FAILURE 0
