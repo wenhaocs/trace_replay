@@ -12,6 +12,7 @@ void replay(char *traceName,char *configName)
 	int fd;
 	char *buf;
 	int i,j;
+	int errno=0;
 	int nowTime,reqTime;
 	
 	config=(struct config_info *)malloc(sizeof(struct config_info));
@@ -81,16 +82,16 @@ void config_read(struct config_info *config,const char *filename)
 
 		if(strcmp(line,"device")==0)
 		{
-			sscanf(buf+value,"%s",config->device);
+			sscanf(line+value,"%s",config->device);
 			config->deviceNum++;
 		}
 		else if(strcmp(line,"trace")==0)
 		{
-			sscanf(buf+value,"%s",config->traceFileName);
+			sscanf(line+value,"%s",config->traceFileName);
 		}
 		else if(strcmp(line,"log")==0)
 		{
-			sscanf(buf+value,"%s",config->logFileName);
+			sscanf(line+value,"%s",config->logFileName);
 		}
 		memset(line,0,sizeof(char)*BUFSIZE);
 	}
@@ -137,15 +138,15 @@ int time_elapsed(int begin)
 
 static void IOCompleted(sigval_t sigval)
 {
-	auto cb;
+	struct aiocb_info *cb;
 	struct trace_info *req;
 	int latency;
 	int error;
 	int count;
 
-	cb=(struct aiocb_info *)sigval.sival_ptr;
+	cb->aiocb=(struct aiocb *)sigval.sival_ptr;
 	latency=time_elapsed(cb->beginTime);
-	error=aio_error(cb);
+	error=aio_error(cb->aiocb);
 	if(error)
 	{
 		if(error != ECANCELED)
@@ -154,11 +155,11 @@ static void IOCompleted(sigval_t sigval)
 		}
 		return;
 	}
-	count=aio_return(cb);
-	if(count<(int)cb->aio_nbytes)
+	count=aio_return(cb->aiocb);
+	if(count<(int)cb->aiocb->aio_nbytes)
 	{
 		fprintf(stderr, "Warning I/O completed:%db but requested:%ldb\n",
-			count,cb->aio_nbytes);
+			count,cb->aiocb->aio_nbytes);
 	}
 	req=cb->req;
 	printf("%d,%lld,%d,%d ",req->time,req->lba,req->size,req->type);
@@ -171,13 +172,13 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 	char *buf_new;
 	int error=0;
 
-	cb->aio_fildes = fd;
-	cb->aio_nbytes = req->size*512;
-	cb->aio_offset = req->lba*512;
+	cb->aiocb->aio_fildes = fd;
+	cb->aiocb->aio_nbytes = req->size*512;
+	cb->aiocb->aio_offset = req->lba*512;
 
-	cb->aio_sigevent.sigev_notify = SIGEV_THREAD;
-	cb->aio_sigevent.sigev_notify_function = IOCompleted;
-	cb->aio_sigevent.sigev_value.sival_ptr = cb;
+	cb->aiocb->aio_sigevent.sigev_notify = SIGEV_THREAD;
+	cb->aiocb->aio_sigevent.sigev_notify_function = IOCompleted;
+	cb->aiocb->aio_sigevent.sigev_value.sival_ptr = cb->aiocb;
 
 	//write and read different buffer
 	if(!USE_GLOBAL_BUFF)
@@ -186,11 +187,11 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 		{
 			fprintf(stderr, "Error allocating buffer\n");
 		}
-		cb->aio_buf = buf_new;
+		cb->aiocb->aio_buf = buf_new;
 	}
 	else
 	{
-		cb->aio_buf = buf;
+		cb->aiocb->aio_buf = buf;
 	}
 
 	cb->req=req;
@@ -198,11 +199,11 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
 
 	if(req.type==1)
 	{
-		error=aio_write(cb);
+		error=aio_write(cb->aiocb);
 	}
 	else if(req.type==0)
 	{
-		error=aio_read(cb);
+		error=aio_read(cb->aiocb);
 	}
 	if(error)
 	{
