@@ -60,7 +60,7 @@ int time_now();
 int time_elapsed(int begin);
 static void IOCompleted(sigval_t sigval);
 static struct aiocb_info *perform_aio(int fd, void *buf,struct trace_info *io);
-static void replayer_aio_init();
+static void init_aio();
 
 //queue.c
 void queue_push(struct trace_info *front,struct trace_info *rear,struct trace_info *req);
