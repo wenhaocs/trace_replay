@@ -37,12 +37,14 @@ void replay(char *traceName,char *configName)
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
 	{
 		fprintf(stderr, "Error allocating buffer\n");
+		printf("allocating buffer error\n");
 		return;
 	}
 	for(i=0;i<LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK;i++)
 	{
 		//Generate random alphabets to write to file
 		buf[i]=(char)(rand()%26+65);
+		printf("111\n");
 	}
 
 	init_aio();
@@ -52,10 +54,13 @@ void replay(char *traceName,char *configName)
 		queue_pop(trace,req);
 		nowTime=time_now();
 		reqTime=req->time;
+		printf("nowtime2=%d\n",nowTime);
 		while(nowTime < reqTime)
 		{
 			nowTime=time_now();
 		}
+		printf("nowtime2=%d\n",nowTime);
+		printf("reqTime=%d\n",reqTime);
 		perform_aio(fd,buf,req);
 	}
 }
