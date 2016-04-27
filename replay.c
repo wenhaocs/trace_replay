@@ -21,16 +21,17 @@ void replay(char *traceName,char *configName)
 	memset(trace,0,sizeof(struct trace_info));
 	req=(struct req_info *)malloc(sizeof(struct req_info));
 	memset(req,0,sizeof(struct req_info));
+
 	config_read(config,configName);
 	trace_read(trace,traceName);
-	queue_print(trace);
+//	queue_print(trace);
 
 	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
 	if(fd < 0) 
 	{
 		fprintf(stderr, "Value of errno: %d\n", errno);
-       	printf("Cannot open\n");
-       	exit(1);
+	       	printf("Cannot open\n");
+       		exit(1);
 	}
 
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
@@ -80,18 +81,18 @@ void config_read(struct config_info *config,const char *filename)
 		{
 			continue;
 		}
-       	ptr=strchr(line,'=');
-        if(!ptr)
+       		ptr=strchr(line,'=');
+	        if(!ptr)
 		{
 			continue;
 		} 
-        name=ptr-line;	//the end of name string+1
-       	value=name+1;	//the start of value string
-        while(line[name-1]==' ') 
+        	name=ptr-line;	//the end of name string+1
+       		value=name+1;	//the start of value string
+	        while(line[name-1]==' ') 
 		{
 			name--;
 		}
-        line[name]=0;
+        	line[name]=0;
 
 		if(strcmp(line,"device")==0)
 		{
