@@ -30,7 +30,7 @@
 struct config_info{
 	char device[64];
 	char traceFileName[64];
-	int	 deviceNum;
+	int  deviceNum;
 	char logFileName[64];
 };
 
@@ -44,8 +44,8 @@ struct req_info{
 };
 
 struct trace_info{
-	struct req_info *trace->front;
-	struct req_info *trace->rear;
+	struct req_info *front;
+	struct req_info *rear;
 };
 
 struct aiocb_info{

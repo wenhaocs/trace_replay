@@ -2,7 +2,7 @@
 
 void main()
 {
-	replay("11.ascii","config.txt");
+	replay("11.ascii","config.ini");
 }
 
 void replay(char *traceName,char *configName)
@@ -23,6 +23,7 @@ void replay(char *traceName,char *configName)
 	memset(req,0,sizeof(struct req_info));
 	config_read(config,configName);
 	trace_read(trace,traceName);
+	queue_print(trace);
 
 	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
 	if(fd < 0) 
@@ -47,7 +48,7 @@ void replay(char *traceName,char *configName)
 
 	while(trace->front!=NULL)
 	{
-		queue_pop(trace->front,trace->rear,req);
+		queue_pop(trace,req);
 		nowTime=time_now();
 		reqTime=req->time;
 		while(nowTime < reqTime)
