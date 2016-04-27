@@ -8,23 +8,28 @@ void main()
 void replay(char *traceName,char *configName)
 {
 	struct config_info *config;
-	struct trace_info *req,*front=NULL,*rear=NULL;
+	struct trace_info *trace;
+	struct req_info *req;
 	int fd;
 	char *buf;
 	int i,j;
 	int nowTime,reqTime;
 	
 	config=(struct config_info *)malloc(sizeof(struct config_info));
-	req=(struct trace_info *)malloc(sizeof(struct trace_info));
+	memset(config,0,sizeof(struct config_info));
+	trace=(struct trace_info *)malloc(sizeof(struct trace_info));
+	memset(trace,0,sizeof(struct trace_info));
+	req=(struct req_info *)malloc(sizeof(struct req_info));
+	memset(req,0,sizeof(struct req_info));
 	config_read(config,configName);
-	trace_read(front,rear,traceName);
+	trace_read(trace,traceName);
 
 	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
 	if(fd < 0) 
 	{
 		fprintf(stderr, "Value of errno: %d\n", errno);
-       		printf("Cannot open\n");
-       		exit(1);
+       	printf("Cannot open\n");
+       	exit(1);
 	}
 
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
@@ -40,9 +45,9 @@ void replay(char *traceName,char *configName)
 
 	init_aio();
 
-	while(front!=NULL)
+	while(trace->front!=NULL)
 	{
-		queue_pop(front,rear,req);
+		queue_pop(trace->front,trace->rear,req);
 		nowTime=time_now();
 		reqTime=req->time;
 		while(nowTime < reqTime)
@@ -51,16 +56,15 @@ void replay(char *traceName,char *configName)
 		}
 		perform_aio(fd,buf,req);
 	}
-
 }
 
 void config_read(struct config_info *config,const char *filename)
 {
-	FILE *configFile;
 	int name,value;
 	char line[BUFSIZE];
 	char *ptr;
-
+	FILE *configFile;
+	
 	configFile=fopen(filename,"r");
 	if(configFile==NULL)
 	{
@@ -71,13 +75,22 @@ void config_read(struct config_info *config,const char *filename)
 	memset(line,0,sizeof(char)*BUFSIZE);
 	while(fgets(line,sizeof(line),configFile))
 	{
-		if(line[0]=='#'||line[0]==' ') continue;
-       		 ptr=strchr(line,'=');
-        	if(!ptr) continue;
-        	name=ptr-line;	//the end of name string+1
-       		value=name+1;	//the start of value string
-        	while(line[name-1]==' ') name--;
-        	line[name]=0;
+		if(line[0]=='#'||line[0]==' ') 
+		{
+			continue;
+		}
+       	ptr=strchr(line,'=');
+        if(!ptr)
+		{
+			continue;
+		} 
+        name=ptr-line;	//the end of name string+1
+       	value=name+1;	//the start of value string
+        while(line[name-1]==' ') 
+		{
+			name--;
+		}
+        line[name]=0;
 
 		if(strcmp(line,"device")==0)
 		{
@@ -97,14 +110,14 @@ void config_read(struct config_info *config,const char *filename)
 	fclose(configFile);
 }
 
-void trace_read(struct trace_info *front,struct trace_info *rear,const char *filename)
+void trace_read(struct trace_info *trace,const char *filename)
 {
 	FILE *traceFile;
 	char line[BUFSIZE];
-	struct trace_info* req;
+	struct req_info* req;
 
 	traceFile=fopen(filename,"r");
-	req=(struct trace_info *)malloc(sizeof(struct trace_info));
+	req=(struct req_info *)malloc(sizeof(struct req_info));
 	if(traceFile==NULL)
 	{
 		printf("error: opening trace file\n");
@@ -117,7 +130,7 @@ void trace_read(struct trace_info *front,struct trace_info *rear,const char *fil
 		req->time=req->time*1000;	//ms-->us
 		req->size=req->size*BYTE_PER_BLOCK;
 		req->lba=(req->lba%BLOCK_PER_DRIVE)*BYTE_PER_BLOCK;
-		queue_push(front,rear,req);
+		queue_push(trace,req);
 	}
 	fclose(traceFile);
 }
@@ -131,14 +144,13 @@ int time_now()
 
 int time_elapsed(int begin)
 {
-	int now=time_now();
-	return now-begin;	//us
+	return time_now()-begin;	//us
 }
 
 static void IOCompleted(sigval_t sigval)
 {
 	struct aiocb_info *cb;
-	struct trace_info *req;
+	struct req_info *req;
 	int latency;
 	int error;
 	int count;
@@ -165,7 +177,7 @@ static void IOCompleted(sigval_t sigval)
 	printf("latency=%d\n",latency);
 }
 
-static struct aiocb_info *perform_aio(int fd, void *buf, struct trace_info *req)
+static struct aiocb_info *perform_aio(int fd, void *buf, struct req_info *req)
 {
 	struct aiocb_info *cb;
 	char *buf_new;
@@ -222,68 +234,62 @@ static void init_aio()
 	aio_init(aioParam);
 }
 
-
-
-void queue_push(struct trace_info *front,struct trace_info *rear,struct trace_info *req)
+void queue_push(struct trace_info *trace,struct req_info *req)
 {
-	struct trace_info* temp = (struct trace_info *)malloc(sizeof(struct trace_info));
-	
+	struct req_info* temp;
+	temp = (struct req_info *)malloc(sizeof(struct req_info));
 	temp->time = req->time;
 	temp->dev = req->dev;
 	temp->lba = req->lba;
 	temp->size = req->size;
 	temp->type = req->type;
-	
 	temp->next = NULL;
-	if(front == NULL && rear == NULL)
+	if(trace->front == NULL && trace->rear == NULL)
 	{
-		front = rear = temp;
+		trace->front = trace->rear = temp;
 	}
 	else
 	{
-		rear->next = temp;
-		rear = temp;
+		trace->rear->next = temp;
+		trace->rear = temp;
 	}
 }
 
-void queue_pop(struct trace_info *front,struct trace_info *rear,struct trace_info *req) 
+void queue_pop(struct trace_info *trace,struct req_info *req) 
 {
-	struct trace_info* temp = front;
-	if(front == NULL) 
+	struct req_info* temp = trace->front;
+	if(trace->front == NULL) 
 	{
 		printf("Queue is Empty\n");
 		return;
 	}
-
-	req->time = front->time;
-	req->dev  = front->dev;
-	req->lba  = front->lba;
-	req->size = front->size;
-	req->type = front->type;
-	
-	if(front == rear) 
+	req->time = trace->front->time;
+	req->dev  = trace->front->dev;
+	req->lba  = trace->front->lba;
+	req->size = trace->front->size;
+	req->type = trace->front->type;	
+	if(trace->front == trace->rear) 
 	{
-		front = rear = NULL;
+		trace->front = trace->rear = NULL;
 	}
 	else 
 	{
-		front = front->next;
+		trace->front = trace->front->next;
 	}
 	free(temp);
 }
 
 
-void queue_print(struct trace_info *front,struct trace_info *rear)
+void queue_print(struct trace_info *trace)
 {
-	struct trace_info* temp = front;
-	while(temp != NULL) 
+	struct req_info* temp = trace->front;
+	while(temp) 
 	{
 		printf("%lf ",temp->time);
 		printf("%d ",temp->dev);
 		printf("%lld ",temp->lba);
 		printf("%d ",temp->size);
-		printf("%d ",temp->type);
+		printf("%d\n",temp->type);
 		temp = temp->next;
 	}
-	printf("\n");
 }

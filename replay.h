@@ -34,13 +34,18 @@ struct config_info{
 	char logFileName[64];
 };
 
-struct trace_info{
+struct req_info{
 	double time;
 	unsigned int dev;
 	long long lba;
 	unsigned int size;
 	unsigned int type;
-	struct trace_info *next;
+	struct req_info *next;
+};
+
+struct trace_info{
+	struct req_info *trace->front;
+	struct req_info *trace->rear;
 };
 
 struct aiocb_info{
@@ -54,23 +59,23 @@ struct aiocb_info{
 	//struct sigevent aio_sigevent;   /* Notification method */
 	//int             aio_lio_opcode; /* Operation to be performed;lio_listio() only */
 	//
-	struct trace_info* req;
+	struct req_info* req;
 	int beginTime;
 };
 
 //replay.c
 void replay(char *traceName,char *configName);
 void config_read(struct config_info *config,const char *filename);
-void trace_read(struct trace_info *front,struct trace_info *rear,const char *filename);
+void trace_read(struct trace_info *trace,const char *filename);
 int time_now();
 int time_elapsed(int begin);
 static void IOCompleted(sigval_t sigval);
-static struct aiocb_info *perform_aio(int fd, void *buf,struct trace_info *io);
+static struct aiocb_info *perform_aio(int fd, void *buf,struct req_info *io);
 static void init_aio();
 
 //queue.c
-void queue_push(struct trace_info *front,struct trace_info *rear,struct trace_info *req);
-void queue_pop(struct trace_info *front,struct trace_info *rear,struct trace_info *req);
-void queue_print(struct trace_info *front,struct trace_info *rear);
+void queue_push(struct trace_info *trace,struct req_info *req);
+void queue_pop(struct trace_info *trace,struct req_info *req);
+void queue_print(struct trace_info *trace);
 
 #endif
