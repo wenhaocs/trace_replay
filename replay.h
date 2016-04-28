@@ -67,10 +67,10 @@ struct aiocb_info{
 void replay(char *traceName,char *configName);
 void config_read(struct config_info *config,const char *filename);
 void trace_read(struct trace_info *trace,const char *filename);
-int time_now();
-int time_elapsed(int begin);
+long long time_now();
+long long time_elapsed(long long begin);
 static void IOCompleted(sigval_t sigval);
-static struct aiocb_info *perform_aio(int fd, void *buf,struct req_info *io);
+static void perform_aio(int fd, void *buf,struct req_info *io);
 static void init_aio();
 
 //queue.c

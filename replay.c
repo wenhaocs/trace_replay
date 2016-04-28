@@ -13,7 +13,7 @@ void replay(char *traceName,char *configName)
 	int fd;
 	char *buf;
 	int i,j;
-	int initTime,nowTime,reqTime;
+	long long initTime,nowTime,reqTime,waitTime;
 	
 	config=(struct config_info *)malloc(sizeof(struct config_info));
 	memset(config,0,sizeof(struct config_info));
@@ -52,22 +52,26 @@ void replay(char *traceName,char *configName)
 	queue_print(trace);
 
 	initTime=time_now();
-	printf("firsttime=%d\n",initTime);
+	printf("initTime=%lld\n",initTime);
 	while(trace->front)
 	{
 		nowTime=time_elapsed(initTime);
-		printf("nowtime1=%d\n",nowTime);
+		printf("nowtime1=%lld\n",nowTime);
 		queue_pop(trace,req);
 		reqTime=req->time;
-		printf("reqTime1=%d\n",reqTime);
-		while(nowTime < reqTime)
+		printf("reqTime1=%lld\n",reqTime);
+		waitTime=reqTime-nowTime;
+		printf("waitTime=%lld\n",waitTime);
+		//while(nowTime < reqTime)
+		if(nowTime < reqTime)
 		{
-			nowTime=time_now();
+			usleep(waitTime);
+			nowTime=time_elapsed(initTime);
 		}
-		printf("nowtime2=%d\n",nowTime);
-		printf("reqTime2=%d\n",reqTime);
+		printf("nowtime2=%lld\n",nowTime);
+		printf("reqTime2=%lld\n",reqTime);
 		printf("----------\n");
-//		perform_aio(fd,buf,req);
+		//perform_aio(fd,buf,req);
 	}
 	free(buf);
 }
@@ -149,14 +153,14 @@ void trace_read(struct trace_info *trace,const char *filename)
 	fclose(traceFile);
 }
 
-int time_now()
+long long time_now()
 {
 	struct timeval now;
 	gettimeofday(&now,NULL);
 	return 1000000*now.tv_sec+now.tv_usec;	//us
 }
 
-int time_elapsed(int begin)
+long long time_elapsed(long long begin)
 {
 	return time_now()-begin;	//us
 }
@@ -191,15 +195,20 @@ static void IOCompleted(sigval_t sigval)
 	printf("latency=%d\n",latency);
 }
 
-static struct aiocb_info *perform_aio(int fd, void *buf, struct req_info *req)
+static void perform_aio(int fd, void *buf, struct req_info *req)
 {
 	struct aiocb_info *cb;
 	char *buf_new;
 	int error=0;
 
+	cb=(struct aiocb_info *)malloc(sizeof(struct aiocb_info));
+	memset(cb,0,sizeof(struct aiocb_info));//where to free this?
+	cb->aiocb=(struct aiocb *)malloc(sizeof(struct aiocb));
+	memset(cb->aiocb,0,sizeof(struct aiocb));//where to free this?
+
 	cb->aiocb->aio_fildes = fd;
-	cb->aiocb->aio_nbytes = req->size*512;
-	cb->aiocb->aio_offset = req->lba*512;
+	cb->aiocb->aio_nbytes = req->size;
+	cb->aiocb->aio_offset = req->lba;
 
 	cb->aiocb->aio_sigevent.sigev_notify = SIGEV_THREAD;
 	cb->aiocb->aio_sigevent.sigev_notify_function = IOCompleted;
@@ -233,9 +242,10 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct req_info *req)
 	if(error)
 	{
 		fprintf(stderr, "Error performing i/o");
-		return NULL;
+		exit(-1);
 	}
-	return cb;
+	free(cb->aiocb);
+	free(cb);
 }
 
 static void init_aio()
