@@ -19,8 +19,8 @@
 #define FAILURE 0
 #define BUFSIZE	300
 
-#define MEM_ALIGN				512  // Memory alignment
-#define USE_GLOBAL_BUFF			1 
+#define MEM_ALIGN		512  // Memory alignment
+#define USE_GLOBAL_BUFF		1 
 #define AIO_THREAD_POOL_SIZE	50
 
 #define BYTE_PER_BLOCK			512 

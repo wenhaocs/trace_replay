@@ -2,7 +2,7 @@
 
 void main()
 {
-	replay("11.ascii","config.ini");
+	replay("22.ascii","config.ini");
 }
 
 void replay(char *traceName,char *configName)
@@ -40,21 +40,23 @@ void replay(char *traceName,char *configName)
 		printf("allocating buffer error\n");
 		return;
 	}
-	for(i=0;i<LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK;i++)
+	for(i=0;i<LARGEST_REQUEST_SIZE*BYTE_PER_BLOCK;i++)
 	{
 		//Generate random alphabets to write to file
 		buf[i]=(char)(rand()%26+65);
-		printf("111\n");
+//		printf("111\n");
 	}
+	printf("222\n");
 
 	init_aio();
+	queue_print(trace);
 
-	while(trace->front!=NULL)
+	while(trace->front)
 	{
-		queue_pop(trace,req);
 		nowTime=time_now();
+		printf("nowtime1=%d\n",nowTime);
+		queue_pop(trace,req);
 		reqTime=req->time;
-		printf("nowtime2=%d\n",nowTime);
 		while(nowTime < reqTime)
 		{
 			nowTime=time_now();
@@ -63,6 +65,7 @@ void replay(char *traceName,char *configName)
 		printf("reqTime=%d\n",reqTime);
 		perform_aio(fd,buf,req);
 	}
+	free(buf);
 }
 
 void config_read(struct config_info *config,const char *filename)
@@ -233,12 +236,14 @@ static struct aiocb_info *perform_aio(int fd, void *buf, struct req_info *req)
 
 static void init_aio()
 {
-	struct aioinit *aioParam = {0};
+	struct aioinit *aioParam;
+	memset(aioParam,0,sizeof(struct aioinit));
 	//two thread for each device is better
 	aioParam->aio_threads = AIO_THREAD_POOL_SIZE;
 	aioParam->aio_num = 2048;
 	aioParam->aio_idle_time = 1;	
 	aio_init(aioParam);
+	printf("endo of init_aio\n");
 }
 
 void queue_push(struct trace_info *trace,struct req_info *req)
