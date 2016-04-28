@@ -13,7 +13,7 @@ void replay(char *traceName,char *configName)
 	int fd;
 	char *buf;
 	int i,j;
-	int nowTime,reqTime;
+	int initTime,nowTime,reqTime;
 	
 	config=(struct config_info *)malloc(sizeof(struct config_info));
 	memset(config,0,sizeof(struct config_info));
@@ -51,19 +51,23 @@ void replay(char *traceName,char *configName)
 	init_aio();
 	queue_print(trace);
 
+	initTime=time_now();
+	printf("firsttime=%d\n",initTime);
 	while(trace->front)
 	{
-		nowTime=time_now();
+		nowTime=time_elapsed(initTime);
 		printf("nowtime1=%d\n",nowTime);
 		queue_pop(trace,req);
 		reqTime=req->time;
+		printf("reqTime1=%d\n",reqTime);
 		while(nowTime < reqTime)
 		{
 			nowTime=time_now();
 		}
 		printf("nowtime2=%d\n",nowTime);
-		printf("reqTime=%d\n",reqTime);
-		perform_aio(fd,buf,req);
+		printf("reqTime2=%d\n",reqTime);
+		printf("----------\n");
+//		perform_aio(fd,buf,req);
 	}
 	free(buf);
 }
@@ -243,7 +247,6 @@ static void init_aio()
 	aioParam->aio_num = 2048;
 	aioParam->aio_idle_time = 1;	
 	aio_init(aioParam);
-	printf("endo of init_aio\n");
 }
 
 void queue_push(struct trace_info *trace,struct req_info *req)
