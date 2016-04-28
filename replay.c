@@ -44,7 +44,7 @@ void replay(char *traceName,char *configName)
 	{
 		//Generate random alphabets to write to file
 		buf[i]=(char)(rand()%26+65);
-//		printf("111\n");
+		//printf("%c\n",buf[i]);
 	}
 	printf("222\n");
 
@@ -71,8 +71,10 @@ void replay(char *traceName,char *configName)
 		printf("nowtime2=%lld\n",nowTime);
 		printf("reqTime2=%lld\n",reqTime);
 		printf("----------\n");
-		//perform_aio(fd,buf,req);
+		perform_aio(fd,buf,req);
 	}
+	printf("begin sleepping------\n");
+	sleep(5);
 	free(buf);
 }
 
@@ -173,13 +175,16 @@ static void IOCompleted(sigval_t sigval)
 	int error;
 	int count;
 
-	cb->aiocb=(struct aiocb *)sigval.sival_ptr;
+	cb=(struct aiocb_info *)sigval.sival_ptr;
 	latency=time_elapsed(cb->beginTime);
+	printf("latency1=%d\n",latency);
+
 	error=aio_error(cb->aiocb);
 	if(error)
 	{
 		if(error != ECANCELED)
 		{
+			printf("Error completing i/o:%d\n",error);
 			fprintf(stderr,"Error completing i/o:%d\n",error);
 		}
 		return;
@@ -187,12 +192,17 @@ static void IOCompleted(sigval_t sigval)
 	count=aio_return(cb->aiocb);
 	if(count<(int)cb->aiocb->aio_nbytes)
 	{
+		printf("Warning I/O completed:%db but requested:%ldb\n",
+			count,cb->aiocb->aio_nbytes);
 		fprintf(stderr, "Warning I/O completed:%db but requested:%ldb\n",
 			count,cb->aiocb->aio_nbytes);
 	}
 	req=cb->req;
-	printf("%lf,%lld,%d,%d ",req->time,req->lba,req->size,req->type);
-	printf("latency=%d\n",latency);
+	printf("%lf,%lld,%d,%d \n",req->time,req->lba,req->size,req->type);
+	printf("latency2=%d\n",latency);
+
+	free(cb->aiocb);
+	free(cb);
 }
 
 static void perform_aio(int fd, void *buf, struct req_info *req)
@@ -212,7 +222,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 
 	cb->aiocb->aio_sigevent.sigev_notify = SIGEV_THREAD;
 	cb->aiocb->aio_sigevent.sigev_notify_function = IOCompleted;
-	cb->aiocb->aio_sigevent.sigev_value.sival_ptr = cb->aiocb;
+	cb->aiocb->aio_sigevent.sigev_value.sival_ptr = cb;
 
 	//write and read different buffer
 	if(USE_GLOBAL_BUFF!=1)
@@ -244,8 +254,6 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 		fprintf(stderr, "Error performing i/o");
 		exit(-1);
 	}
-	free(cb->aiocb);
-	free(cb);
 }
 
 static void init_aio()

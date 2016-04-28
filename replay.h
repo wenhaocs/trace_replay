@@ -23,9 +23,9 @@
 #define USE_GLOBAL_BUFF		1 
 #define AIO_THREAD_POOL_SIZE	50
 
-#define BYTE_PER_BLOCK			512 
+#define BYTE_PER_BLOCK		512 
 #define LARGEST_REQUEST_SIZE	10000  // Largest request size in blocks
-#define BLOCK_PER_DRIVE			3800000	//2GB blocks number
+#define BLOCK_PER_DRIVE		3800000	//2GB blocks number
 
 struct config_info{
 	char device[64];
