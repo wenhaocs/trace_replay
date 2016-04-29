@@ -63,9 +63,9 @@ void replay(char *traceName,char *configName)
 		waitTime=reqTime-nowTime;
 		printf("waitTime=%lld\n",waitTime);
 		//while(nowTime < reqTime)
-		if(nowTime < reqTime)
+		while(nowTime < reqTime)
 		{
-			usleep(waitTime);
+//			usleep(waitTime);
 			nowTime=time_elapsed(initTime);
 		}
 		printf("nowtime2=%lld\n",nowTime);
@@ -187,6 +187,10 @@ static void IOCompleted(sigval_t sigval)
 			printf("Error completing i/o:%d\n",error);
 			fprintf(stderr,"Error completing i/o:%d\n",error);
 		}
+		else
+		{
+			printf("---ECANCELED error\n");
+		}
 		return;
 	}
 	count=aio_return(cb->aiocb);
@@ -245,15 +249,17 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	{
 		error=aio_write(cb->aiocb);
 	}
-	else if(req->type==0)
+	else //if(req->type==0)
 	{
 		error=aio_read(cb->aiocb);
 	}
+	printf("aio access time %lf\n",cb->req->time);
 	if(error)
 	{
 		fprintf(stderr, "Error performing i/o");
 		exit(-1);
 	}
+	while(aio_error(cb->aiocb)==EINPROGRESS);
 }
 
 static void init_aio()
