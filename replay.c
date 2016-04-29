@@ -74,7 +74,7 @@ void replay(char *traceName,char *configName)
 		perform_aio(fd,buf,req);
 	}
 	printf("begin sleepping------\n");
-	sleep(5);
+	sleep(15);
 	free(buf);
 }
 
@@ -165,6 +165,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	{
 		error=aio_read(cb->aiocb);
 	}
+	while(aio_error(cb->aiocb)==EINPROGRESS);
 	printf("aio access time %lf\n",cb->req->time);
 	if(error)
 	{
