@@ -78,95 +78,6 @@ void replay(char *traceName,char *configName)
 	free(buf);
 }
 
-void config_read(struct config_info *config,const char *filename)
-{
-	int name,value;
-	char line[BUFSIZE];
-	char *ptr;
-	FILE *configFile;
-	
-	configFile=fopen(filename,"r");
-	if(configFile==NULL)
-	{
-		printf("error: opening config file\n");
-		exit(-1);
-	}
-	//read config file
-	memset(line,0,sizeof(char)*BUFSIZE);
-	while(fgets(line,sizeof(line),configFile))
-	{
-		if(line[0]=='#'||line[0]==' ') 
-		{
-			continue;
-		}
-       		ptr=strchr(line,'=');
-	        if(!ptr)
-		{
-			continue;
-		} 
-        	name=ptr-line;	//the end of name string+1
-       		value=name+1;	//the start of value string
-	        while(line[name-1]==' ') 
-		{
-			name--;
-		}
-        	line[name]=0;
-
-		if(strcmp(line,"device")==0)
-		{
-			sscanf(line+value,"%s",config->device);
-			config->deviceNum++;
-		}
-		else if(strcmp(line,"trace")==0)
-		{
-			sscanf(line+value,"%s",config->traceFileName);
-		}
-		else if(strcmp(line,"log")==0)
-		{
-			sscanf(line+value,"%s",config->logFileName);
-		}
-		memset(line,0,sizeof(char)*BUFSIZE);
-	}
-	fclose(configFile);
-}
-
-void trace_read(struct trace_info *trace,const char *filename)
-{
-	FILE *traceFile;
-	char line[BUFSIZE];
-	struct req_info* req;
-
-	traceFile=fopen(filename,"r");
-	req=(struct req_info *)malloc(sizeof(struct req_info));
-	if(traceFile==NULL)
-	{
-		printf("error: opening trace file\n");
-		exit(-1);
-	}
-	while(fgets(line,sizeof(line),traceFile))
-	{
-		sscanf(line,"%lf %d %lld %d %d",&req->time,&req->dev,&req->lba,&req->size,&req->type);
-		//push into request queue
-		req->time=req->time*1000;	//ms-->us
-		req->size=req->size*BYTE_PER_BLOCK;
-		req->lba=(req->lba%BLOCK_PER_DRIVE)*BYTE_PER_BLOCK;
-		queue_push(trace,req);
-	}
-	fclose(traceFile);
-}
-
-long long time_now()
-{
-	struct timeval now;
-	gettimeofday(&now,NULL);
-	return 1000000*now.tv_sec+now.tv_usec;	//us
-}
-
-long long time_elapsed(long long begin)
-{
-	return time_now()-begin;	//us
-}
-
 static void IOCompleted(sigval_t sigval)
 {
 	struct aiocb_info *cb;
@@ -272,6 +183,95 @@ static void init_aio()
 	aioParam->aio_num = 2048;
 	aioParam->aio_idle_time = 1;	
 	aio_init(aioParam);
+}
+
+void config_read(struct config_info *config,const char *filename)
+{
+	int name,value;
+	char line[BUFSIZE];
+	char *ptr;
+	FILE *configFile;
+	
+	configFile=fopen(filename,"r");
+	if(configFile==NULL)
+	{
+		printf("error: opening config file\n");
+		exit(-1);
+	}
+	//read config file
+	memset(line,0,sizeof(char)*BUFSIZE);
+	while(fgets(line,sizeof(line),configFile))
+	{
+		if(line[0]=='#'||line[0]==' ') 
+		{
+			continue;
+		}
+       		ptr=strchr(line,'=');
+	        if(!ptr)
+		{
+			continue;
+		} 
+        	name=ptr-line;	//the end of name string+1
+       		value=name+1;	//the start of value string
+	        while(line[name-1]==' ') 
+		{
+			name--;
+		}
+        	line[name]=0;
+
+		if(strcmp(line,"device")==0)
+		{
+			sscanf(line+value,"%s",config->device);
+			config->deviceNum++;
+		}
+		else if(strcmp(line,"trace")==0)
+		{
+			sscanf(line+value,"%s",config->traceFileName);
+		}
+		else if(strcmp(line,"log")==0)
+		{
+			sscanf(line+value,"%s",config->logFileName);
+		}
+		memset(line,0,sizeof(char)*BUFSIZE);
+	}
+	fclose(configFile);
+}
+
+void trace_read(struct trace_info *trace,const char *filename)
+{
+	FILE *traceFile;
+	char line[BUFSIZE];
+	struct req_info* req;
+
+	traceFile=fopen(filename,"r");
+	req=(struct req_info *)malloc(sizeof(struct req_info));
+	if(traceFile==NULL)
+	{
+		printf("error: opening trace file\n");
+		exit(-1);
+	}
+	while(fgets(line,sizeof(line),traceFile))
+	{
+		sscanf(line,"%lf %d %lld %d %d",&req->time,&req->dev,&req->lba,&req->size,&req->type);
+		//push into request queue
+		req->time=req->time*1000;	//ms-->us
+		req->size=req->size*BYTE_PER_BLOCK;
+		req->lba=(req->lba%BLOCK_PER_DRIVE)*BYTE_PER_BLOCK;
+		queue_push(trace,req);
+	}
+	fclose(traceFile);
+}
+
+long long time_now()
+{
+	struct timeval now;
+	gettimeofday(&now,NULL);
+	return 1000000*now.tv_sec+now.tv_usec;	//us
+}
+
+long long time_elapsed(long long begin)
+{
+	return time_now()-begin;	//us
 }
 
 void queue_push(struct trace_info *trace,struct req_info *req)
