@@ -245,6 +245,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	cb->req=req;
 	cb->beginTime=time_now();
 
+	printf("********mark\n");
 	if(req->type==1)
 	{
 		error=aio_write(cb->aiocb);
@@ -259,7 +260,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 		fprintf(stderr, "Error performing i/o");
 		exit(-1);
 	}
-	while(aio_error(cb->aiocb)==EINPROGRESS);
+//	while(aio_error(cb->aiocb)==EINPROGRESS);
 }
 
 static void init_aio()
