@@ -23,7 +23,7 @@ void replay(char *traceName,char *configName)
 
 	config_read(config,configName);
 	trace_read(trace,traceName);
-//	queue_print(trace);
+	//queue_print(trace);
 
 	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
 	if(fd < 0) 
@@ -46,7 +46,7 @@ void replay(char *traceName,char *configName)
 	}
 
 	init_aio();
-	queue_print(trace);
+	//queue_print(trace);
 
 	initTime=time_now();
 	printf("initTime=%lld\n",initTime);
@@ -69,6 +69,9 @@ void replay(char *traceName,char *configName)
 	printf("begin sleepping------\n");
 	sleep(5);
 	free(buf);
+	free(config);
+	free(trace);
+	free(req);
 }
 
 static void IOCompleted(sigval_t sigval)
@@ -109,8 +112,8 @@ static void IOCompleted(sigval_t sigval)
 	req=cb->req;
 	printf("%lf,%lld,%d,%d \n",req->time,req->lba,req->size,req->type);
 
-//	free(cb->aiocb);
-//	free(cb);
+	free(cb->aiocb);
+	free(cb);
 	printf("--------mark_2\n");
 }
 
@@ -126,6 +129,8 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	memset(cb,0,sizeof(struct aiocb_info));//where to free this?
 	cb->aiocb=(struct aiocb *)malloc(sizeof(struct aiocb));
 	memset(cb->aiocb,0,sizeof(struct aiocb));//where to free this?
+	cb->req=(struct req_info *)malloc(sizeof(struct req_info));
+	memset(cb->req,0,sizeof(struct req_info));
 
 	cb->aiocb->aio_fildes = fd;
 	cb->aiocb->aio_nbytes = req->size;
@@ -151,7 +156,13 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 		cb->aiocb->aio_buf = buf;
 	}
 
-	cb->req=req;
+//	cb->req=req;
+	cb->req->time=req->time;
+	cb->req->dev=req->dev;
+	cb->req->lba=req->lba;
+	cb->req->size=req->size;
+	cb->req->type=req->type;
+
 	cb->beginTime=time_now();
 
 	if(req->type==1)
@@ -251,6 +262,11 @@ void trace_read(struct trace_info *trace,const char *filename)
 	}
 	while(fgets(line,sizeof(line),traceFile))
 	{
+		printf("string length=%d\n",(int)strlen(line));
+		if(strlen(line)==2)
+		{
+			continue;
+		}
 		sscanf(line,"%lf %d %lld %d %d",&req->time,&req->dev,&req->lba,&req->size,&req->type);
 		//push into request queue
 		req->time=req->time*1000;	//ms-->us
