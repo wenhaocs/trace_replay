@@ -13,6 +13,7 @@
 #include <linux/fs.h>
 #include <errno.h>
 #include <pthread.h>
+#include <signal.h>
 //#include <sys/types.h>
 //#include <sys/stat.h>
 
@@ -61,7 +62,7 @@ struct aiocb_info{
 	//int             aio_lio_opcode; /* Operation to be performed;lio_listio() only */
 	//
 	struct req_info* req;
-	int beginTime;
+	long long beginTime;
 };
 
 //replay.c

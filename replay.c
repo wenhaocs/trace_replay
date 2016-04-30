@@ -1,5 +1,4 @@
 #include "replay.h"
-
 void main()
 {
 	replay("22.ascii","config.ini");
@@ -31,7 +30,7 @@ void replay(char *traceName,char *configName)
 	{
 		fprintf(stderr, "Value of errno: %d\n", errno);
 	       	printf("Cannot open\n");
-       		exit(1);
+       		exit(-1);
 	}
 
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
@@ -44,9 +43,7 @@ void replay(char *traceName,char *configName)
 	{
 		//Generate random alphabets to write to file
 		buf[i]=(char)(rand()%26+65);
-		//printf("%c\n",buf[i]);
 	}
-	printf("222\n");
 
 	init_aio();
 	queue_print(trace);
@@ -55,26 +52,22 @@ void replay(char *traceName,char *configName)
 	printf("initTime=%lld\n",initTime);
 	while(trace->front)
 	{
-		nowTime=time_elapsed(initTime);
-		printf("nowtime1=%lld\n",nowTime);
 		queue_pop(trace,req);
 		reqTime=req->time;
-		printf("reqTime1=%lld\n",reqTime);
+		printf("=======================reqTime=%lld\n",reqTime);
+		nowTime=time_elapsed(initTime);
+		printf("nowtime1=%lld\n",nowTime);
 		waitTime=reqTime-nowTime;
-		printf("waitTime=%lld\n",waitTime);
-		//while(nowTime < reqTime)
 		while(nowTime < reqTime)
 		{
 //			usleep(waitTime);
 			nowTime=time_elapsed(initTime);
 		}
 		printf("nowtime2=%lld\n",nowTime);
-		printf("reqTime2=%lld\n",reqTime);
-		printf("----------\n");
 		perform_aio(fd,buf,req);
 	}
 	printf("begin sleepping------\n");
-	sleep(15);
+	sleep(5);
 	free(buf);
 }
 
@@ -86,6 +79,7 @@ static void IOCompleted(sigval_t sigval)
 	int error;
 	int count;
 
+	printf("--------mark_1\n");
 	cb=(struct aiocb_info *)sigval.sival_ptr;
 	latency=time_elapsed(cb->beginTime);
 	printf("latency1=%d\n",latency);
@@ -114,10 +108,10 @@ static void IOCompleted(sigval_t sigval)
 	}
 	req=cb->req;
 	printf("%lf,%lld,%d,%d \n",req->time,req->lba,req->size,req->type);
-	printf("latency2=%d\n",latency);
 
-	free(cb->aiocb);
-	free(cb);
+//	free(cb->aiocb);
+//	free(cb);
+	printf("--------mark_2\n");
 }
 
 static void perform_aio(int fd, void *buf, struct req_info *req)
@@ -125,7 +119,9 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	struct aiocb_info *cb;
 	char *buf_new;
 	int error=0;
+//	struct sigaction *sig_act;
 
+	printf("********mark_1\n");
 	cb=(struct aiocb_info *)malloc(sizeof(struct aiocb_info));
 	memset(cb,0,sizeof(struct aiocb_info));//where to free this?
 	cb->aiocb=(struct aiocb *)malloc(sizeof(struct aiocb));
@@ -137,8 +133,10 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 
 	cb->aiocb->aio_sigevent.sigev_notify = SIGEV_THREAD;
 	cb->aiocb->aio_sigevent.sigev_notify_function = IOCompleted;
+	cb->aiocb->aio_sigevent.sigev_notify_attributes = NULL;
 	cb->aiocb->aio_sigevent.sigev_value.sival_ptr = cb;
 
+//	error=sigaction(SIGIO,sig_act,NULL);
 	//write and read different buffer
 	if(USE_GLOBAL_BUFF!=1)
 	{
@@ -156,7 +154,6 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	cb->req=req;
 	cb->beginTime=time_now();
 
-	printf("********mark\n");
 	if(req->type==1)
 	{
 		error=aio_write(cb->aiocb);
@@ -173,17 +170,18 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 		exit(-1);
 	}
 //	while(aio_error(cb->aiocb)==EINPROGRESS);
+	printf("********mark_2\n");
 }
 
 static void init_aio()
 {
-	struct aioinit *aioParam;
-	memset(aioParam,0,sizeof(struct aioinit));
+	struct aioinit aioParam={0};
+//	memset(aioParam,0,sizeof(struct aioinit));
 	//two thread for each device is better
-	aioParam->aio_threads = AIO_THREAD_POOL_SIZE;
-	aioParam->aio_num = 2048;
-	aioParam->aio_idle_time = 1;	
-	aio_init(aioParam);
+	aioParam.aio_threads = AIO_THREAD_POOL_SIZE;
+	aioParam.aio_num = 2048;
+	aioParam.aio_idle_time = 1;	
+	aio_init(&aioParam);
 }
 
 void config_read(struct config_info *config,const char *filename)
