@@ -22,7 +22,7 @@ void replay(char *traceName,char *configName)
 	memset(req,0,sizeof(struct req_info));
 
 	config_read(config,configName);
-	trace_read(trace,traceName);
+	trace_read(config,trace,traceName);
 
 	//queue_print(trace);
 	//printf("trace->inNum=%d\n",trace->inNum);
@@ -57,16 +57,16 @@ void replay(char *traceName,char *configName)
 	{
 		queue_pop(trace,req);
 		reqTime=req->time;
-		printf("=======================reqTime=%lld\n",reqTime);
+		//printf("=======================reqTime=%lld\n",reqTime);
 		nowTime=time_elapsed(initTime);
-		printf("nowtime1=%lld\n",nowTime);
+		//printf("nowtime1=%lld\n",nowTime);
 		waitTime=reqTime-nowTime;
 		while(nowTime < reqTime)
 		{
 //			usleep(waitTime);
 			nowTime=time_elapsed(initTime);
 		}
-		printf("nowtime2=%lld\n",nowTime);
+		//printf("nowtime2=%lld\n",nowTime);
 		perform_aio(fd,buf,req,trace);
 	}
 	while(trace->inNum > trace->outNum)
@@ -76,8 +76,10 @@ void replay(char *traceName,char *configName)
 		printf("begin sleepping------\n");
 		sleep(1);
 	}
+	printf("average latency= %Lf\n",(long double)trace->latencySum/(long double)trace->inNum);
 	free(buf);
 	free(config);
+	fclose(trace->logFile);
 	free(trace);
 	free(req);
 }
@@ -85,15 +87,15 @@ void replay(char *traceName,char *configName)
 static void IOCompleted(sigval_t sigval)
 {
 	struct aiocb_info *cb;
-	struct req_info *req;
+//	struct req_info *req;
 	int latency;
 	int error;
 	int count;
 
-	printf("--------mark_1\n");
+	//printf("--------mark_1\n");
 	cb=(struct aiocb_info *)sigval.sival_ptr;
 	latency=time_elapsed(cb->beginTime);
-	printf("latency1=%d\n",latency);
+	cb->trace->latencySum+=latency;
 
 	error=aio_error(cb->aiocb);
 	if(error)
@@ -117,15 +119,16 @@ static void IOCompleted(sigval_t sigval)
 		fprintf(stderr, "Warning I/O completed:%db but requested:%ldb\n",
 			count,cb->aiocb->aio_nbytes);
 	}
-	req=cb->req;
-	printf("%lf,%lld,%d,%d,latency=%d \n",req->time,req->lba,req->size,req->type,latency);
+	//req=cb->req;
+	fprintf(cb->trace->logFile,"%-16lf %-12lld %-5d %-2d %d \n",cb->req->time,cb->req->lba,cb->req->size,cb->req->type,latency);
+	fflush(cb->trace->logFile);
 
 	cb->trace->outNum++;
-	printf("trace->outNum=%d\n",cb->trace->outNum);
+	//printf("trace->outNum=%d\n",cb->trace->outNum);
 
 	free(cb->aiocb);
 	free(cb);
-	printf("--------mark_2\n");
+	//printf("--------mark_2\n");
 }
 
 static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_info *trace)
@@ -135,7 +138,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_inf
 	int error=0;
 //	struct sigaction *sig_act;
 
-	printf("********mark_1\n");
+	//printf("********mark_1\n");
 	cb=(struct aiocb_info *)malloc(sizeof(struct aiocb_info));
 	memset(cb,0,sizeof(struct aiocb_info));//where to free this?
 	cb->aiocb=(struct aiocb *)malloc(sizeof(struct aiocb));
@@ -186,14 +189,13 @@ static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_inf
 		error=aio_read(cb->aiocb);
 	}
 	//while(aio_error(cb->aiocb)==EINPROGRESS);
-	printf("aio access time %lf\n",cb->req->time);
+	//printf("aio access time %lf\n",cb->req->time);
 	if(error)
 	{
 		fprintf(stderr, "Error performing i/o");
 		exit(-1);
 	}
-//	while(aio_error(cb->aiocb)==EINPROGRESS);
-	printf("********mark_2\n");
+	//printf("********mark_2\n");
 }
 
 static void init_aio()
@@ -259,7 +261,7 @@ void config_read(struct config_info *config,const char *filename)
 	fclose(configFile);
 }
 
-void trace_read(struct trace_info *trace,const char *filename)
+void trace_read(struct config_info *config,struct trace_info *trace,const char *filename)
 {
 	FILE *traceFile;
 	char line[BUFSIZE];
@@ -272,8 +274,12 @@ void trace_read(struct trace_info *trace,const char *filename)
 		printf("error: opening trace file\n");
 		exit(-1);
 	}
+	//initialize trace file parameters
 	trace->inNum=0;
 	trace->outNum=0;
+	trace->latencySum=0;
+	trace->logFile=fopen(config->logFileName,"w");
+
 	while(fgets(line,sizeof(line),traceFile))
 	{
 		if(strlen(line)==2)

@@ -48,6 +48,9 @@ struct req_info{
 struct trace_info{
 	unsigned int inNum;
 	unsigned int outNum;
+	long long latencySum;
+	FILE *logFile;
+
 	struct req_info *front;
 	struct req_info *rear;
 };
@@ -71,7 +74,7 @@ struct aiocb_info{
 //replay.c
 void replay(char *traceName,char *configName);
 void config_read(struct config_info *config,const char *filename);
-void trace_read(struct trace_info *trace,const char *filename);
+void trace_read(struct config_info *config,struct trace_info *trace,const char *filename);
 long long time_now();
 long long time_elapsed(long long begin);
 static void IOCompleted(sigval_t sigval);
