@@ -23,7 +23,10 @@ void replay(char *traceName,char *configName)
 
 	config_read(config,configName);
 	trace_read(trace,traceName);
+
 	//queue_print(trace);
+	//printf("trace->inNum=%d\n",trace->inNum);
+	//printf("trace->outNum=%d\n",trace->outNum);
 
 	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
 	if(fd < 0) 
@@ -64,10 +67,15 @@ void replay(char *traceName,char *configName)
 			nowTime=time_elapsed(initTime);
 		}
 		printf("nowtime2=%lld\n",nowTime);
-		perform_aio(fd,buf,req);
+		perform_aio(fd,buf,req,trace);
 	}
-	printf("begin sleepping------\n");
-	sleep(5);
+	while(trace->inNum > trace->outNum)
+	{
+		printf("trace->inNum=%d\n",trace->inNum);
+		printf("trace->outNum=%d\n",trace->outNum);
+		printf("begin sleepping------\n");
+		sleep(1);
+	}
 	free(buf);
 	free(config);
 	free(trace);
@@ -110,14 +118,17 @@ static void IOCompleted(sigval_t sigval)
 			count,cb->aiocb->aio_nbytes);
 	}
 	req=cb->req;
-	printf("%lf,%lld,%d,%d \n",req->time,req->lba,req->size,req->type);
+	printf("%lf,%lld,%d,%d,latency=%d \n",req->time,req->lba,req->size,req->type,latency);
+
+	cb->trace->outNum++;
+	printf("trace->outNum=%d\n",cb->trace->outNum);
 
 	free(cb->aiocb);
 	free(cb);
 	printf("--------mark_2\n");
 }
 
-static void perform_aio(int fd, void *buf, struct req_info *req)
+static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_info *trace)
 {
 	struct aiocb_info *cb;
 	char *buf_new;
@@ -164,6 +175,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	cb->req->type=req->type;
 
 	cb->beginTime=time_now();
+	cb->trace=trace;
 
 	if(req->type==1)
 	{
@@ -173,7 +185,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 	{
 		error=aio_read(cb->aiocb);
 	}
-	while(aio_error(cb->aiocb)==EINPROGRESS);
+	//while(aio_error(cb->aiocb)==EINPROGRESS);
 	printf("aio access time %lf\n",cb->req->time);
 	if(error)
 	{
@@ -260,12 +272,15 @@ void trace_read(struct trace_info *trace,const char *filename)
 		printf("error: opening trace file\n");
 		exit(-1);
 	}
+	trace->inNum=0;
+	trace->outNum=0;
 	while(fgets(line,sizeof(line),traceFile))
 	{
 		if(strlen(line)==2)
 		{
 			continue;
 		}
+		trace->inNum++;	//track the process of IO requests
 		sscanf(line,"%lf %d %lld %d %d",&req->time,&req->dev,&req->lba,&req->size,&req->type);
 		//push into request queue
 		req->time=req->time*1000;	//ms-->us

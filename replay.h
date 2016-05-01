@@ -13,7 +13,7 @@
 #include <linux/fs.h>
 #include <errno.h>
 #include <pthread.h>
-#include <signal.h>
+//#include <signal.h>
 //#include <sys/types.h>
 //#include <sys/stat.h>
 
@@ -46,6 +46,8 @@ struct req_info{
 };
 
 struct trace_info{
+	unsigned int inNum;
+	unsigned int outNum;
 	struct req_info *front;
 	struct req_info *rear;
 };
@@ -63,6 +65,7 @@ struct aiocb_info{
 	//
 	struct req_info* req;
 	long long beginTime;
+	struct trace_info *trace;
 };
 
 //replay.c
@@ -72,7 +75,7 @@ void trace_read(struct trace_info *trace,const char *filename);
 long long time_now();
 long long time_elapsed(long long begin);
 static void IOCompleted(sigval_t sigval);
-static void perform_aio(int fd, void *buf,struct req_info *io);
+static void perform_aio(int fd, void *buf,struct req_info *req,struct trace_info *trace);
 static void init_aio();
 
 //queue.c
