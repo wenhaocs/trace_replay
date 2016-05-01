@@ -77,8 +77,8 @@ void config_read(struct config_info *config,const char *filename);
 void trace_read(struct config_info *config,struct trace_info *trace);
 long long time_now();
 long long time_elapsed(long long begin);
-static void IOCompleted(sigval_t sigval);
-static void perform_aio(int fd, void *buf,struct req_info *req,struct trace_info *trace);
+static void handle_aio(sigval_t sigval);
+static void submit_aio(int fd, void *buf,struct req_info *req,struct trace_info *trace);
 static void init_aio();
 
 //queue.c

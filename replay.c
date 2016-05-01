@@ -32,8 +32,10 @@ void replay(char *configName)
 	//printf("trace->latencySum=%lld\n",trace->latencySum);
 
 	printf("config->devNum=%d\n",config->deviceNum);
-	printf("dev 1=%s\n",config->device[0]);
-	printf("dev 2=%s\n",config->device[1]);
+	for(i=0;i<config->deviceNum;i++)
+	{
+		printf("config->device[%d]=%s\n",i,config->device[i]);
+	}
 	
 	for(i=0;i<config->deviceNum;i++)
 	{
@@ -75,11 +77,11 @@ void replay(char *configName)
 		}
 		if(trace->outNum%2==0)
 		{
-			perform_aio(fd[0],buf,req,trace);
+			submit_aio(fd[0],buf,req,trace);
 		}
 		else
 		{
-			perform_aio(fd[1],buf,req,trace);
+			submit_aio(fd[1],buf,req,trace);
 		}
 	}
 	while(trace->inNum > trace->outNum)
@@ -97,7 +99,7 @@ void replay(char *configName)
 	free(req);
 }
 
-static void IOCompleted(sigval_t sigval)
+static void handle_aio(sigval_t sigval)
 {
 	struct aiocb_info *cb;
 	int latency;
@@ -144,7 +146,7 @@ static void IOCompleted(sigval_t sigval)
 	free(cb);
 }
 
-static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_info *trace)
+static void submit_aio(int fd, void *buf, struct req_info *req,struct trace_info *trace)
 {
 	struct aiocb_info *cb;
 	char *buf_new;
@@ -163,7 +165,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_inf
 	cb->aiocb->aio_offset = req->lba;
 
 	cb->aiocb->aio_sigevent.sigev_notify = SIGEV_THREAD;
-	cb->aiocb->aio_sigevent.sigev_notify_function = IOCompleted;
+	cb->aiocb->aio_sigevent.sigev_notify_function = handle_aio;
 	cb->aiocb->aio_sigevent.sigev_notify_attributes = NULL;
 	cb->aiocb->aio_sigevent.sigev_value.sival_ptr = cb;
 
