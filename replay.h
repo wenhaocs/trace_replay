@@ -72,9 +72,9 @@ struct aiocb_info{
 };
 
 //replay.c
-void replay(char *traceName,char *configName);
+void replay(char *configName);
 void config_read(struct config_info *config,const char *filename);
-void trace_read(struct config_info *config,struct trace_info *trace,const char *filename);
+void trace_read(struct config_info *config,struct trace_info *trace);
 long long time_now();
 long long time_elapsed(long long begin);
 static void IOCompleted(sigval_t sigval);

@@ -1,17 +1,17 @@
 #include "replay.h"
 void main()
 {
-	replay("22.ascii","config.ini");
+	replay("config.ini");
 }
 
-void replay(char *traceName,char *configName)
+void replay(char *configName)
 {
 	struct config_info *config;
 	struct trace_info *trace;
 	struct req_info *req;
 	int fd;
 	char *buf;
-	int i,j;
+	int i;
 	long long initTime,nowTime,reqTime,waitTime;
 	
 	config=(struct config_info *)malloc(sizeof(struct config_info));
@@ -22,11 +22,12 @@ void replay(char *traceName,char *configName)
 	memset(req,0,sizeof(struct req_info));
 
 	config_read(config,configName);
-	trace_read(config,trace,traceName);
+	trace_read(config,trace);
 
 	//queue_print(trace);
 	//printf("trace->inNum=%d\n",trace->inNum);
 	//printf("trace->outNum=%d\n",trace->outNum);
+	//printf("trace->latencySum=%lld\n",trace->latencySum);
 
 	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
 	if(fd < 0) 
@@ -49,31 +50,27 @@ void replay(char *traceName,char *configName)
 	}
 
 	init_aio();
-	//queue_print(trace);
 
 	initTime=time_now();
-	printf("initTime=%lld\n",initTime);
+	//printf("initTime=%lld\n",initTime);
 	while(trace->front)
 	{
 		queue_pop(trace,req);
 		reqTime=req->time;
-		//printf("=======================reqTime=%lld\n",reqTime);
 		nowTime=time_elapsed(initTime);
-		//printf("nowtime1=%lld\n",nowTime);
-		waitTime=reqTime-nowTime;
+		//waitTime=reqTime-nowTime;
 		while(nowTime < reqTime)
 		{
-//			usleep(waitTime);
+			//usleep(waitTime);
 			nowTime=time_elapsed(initTime);
 		}
-		//printf("nowtime2=%lld\n",nowTime);
 		perform_aio(fd,buf,req,trace);
 	}
 	while(trace->inNum > trace->outNum)
 	{
 		printf("trace->inNum=%d\n",trace->inNum);
 		printf("trace->outNum=%d\n",trace->outNum);
-		printf("begin sleepping------\n");
+		printf("begin sleepping 1 second------\n");
 		sleep(1);
 	}
 	printf("average latency= %Lf\n",(long double)trace->latencySum/(long double)trace->inNum);
@@ -87,12 +84,10 @@ void replay(char *traceName,char *configName)
 static void IOCompleted(sigval_t sigval)
 {
 	struct aiocb_info *cb;
-//	struct req_info *req;
 	int latency;
 	int error;
 	int count;
 
-	//printf("--------mark_1\n");
 	cb=(struct aiocb_info *)sigval.sival_ptr;
 	latency=time_elapsed(cb->beginTime);
 	cb->trace->latencySum+=latency;
@@ -119,16 +114,14 @@ static void IOCompleted(sigval_t sigval)
 		fprintf(stderr, "Warning I/O completed:%db but requested:%ldb\n",
 			count,cb->aiocb->aio_nbytes);
 	}
-	//req=cb->req;
 	fprintf(cb->trace->logFile,"%-16lf %-12lld %-5d %-2d %d \n",cb->req->time,cb->req->lba,cb->req->size,cb->req->type,latency);
 	fflush(cb->trace->logFile);
 
 	cb->trace->outNum++;
-	//printf("trace->outNum=%d\n",cb->trace->outNum);
+	//printf("cb->trace->outNum=%d\n",cb->trace->outNum);
 
 	free(cb->aiocb);
 	free(cb);
-	//printf("--------mark_2\n");
 }
 
 static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_info *trace)
@@ -136,9 +129,8 @@ static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_inf
 	struct aiocb_info *cb;
 	char *buf_new;
 	int error=0;
-//	struct sigaction *sig_act;
+	//struct sigaction *sig_act;
 
-	//printf("********mark_1\n");
 	cb=(struct aiocb_info *)malloc(sizeof(struct aiocb_info));
 	memset(cb,0,sizeof(struct aiocb_info));//where to free this?
 	cb->aiocb=(struct aiocb *)malloc(sizeof(struct aiocb));
@@ -155,7 +147,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_inf
 	cb->aiocb->aio_sigevent.sigev_notify_attributes = NULL;
 	cb->aiocb->aio_sigevent.sigev_value.sival_ptr = cb;
 
-//	error=sigaction(SIGIO,sig_act,NULL);
+	//error=sigaction(SIGIO,sig_act,NULL);
 	//write and read different buffer
 	if(USE_GLOBAL_BUFF!=1)
 	{
@@ -170,7 +162,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_inf
 		cb->aiocb->aio_buf = buf;
 	}
 
-//	cb->req=req;	//WTF
+	//cb->req=req;	//WTF
 	cb->req->time=req->time;
 	cb->req->dev=req->dev;
 	cb->req->lba=req->lba;
@@ -189,19 +181,17 @@ static void perform_aio(int fd, void *buf, struct req_info *req,struct trace_inf
 		error=aio_read(cb->aiocb);
 	}
 	//while(aio_error(cb->aiocb)==EINPROGRESS);
-	//printf("aio access time %lf\n",cb->req->time);
 	if(error)
 	{
 		fprintf(stderr, "Error performing i/o");
 		exit(-1);
 	}
-	//printf("********mark_2\n");
 }
 
 static void init_aio()
 {
 	struct aioinit aioParam={0};
-//	memset(aioParam,0,sizeof(struct aioinit));
+	//memset(aioParam,0,sizeof(struct aioinit));
 	//two thread for each device is better
 	aioParam.aio_threads = AIO_THREAD_POOL_SIZE;
 	aioParam.aio_num = 2048;
@@ -261,13 +251,13 @@ void config_read(struct config_info *config,const char *filename)
 	fclose(configFile);
 }
 
-void trace_read(struct config_info *config,struct trace_info *trace,const char *filename)
+void trace_read(struct config_info *config,struct trace_info *trace)
 {
 	FILE *traceFile;
 	char line[BUFSIZE];
 	struct req_info* req;
 
-	traceFile=fopen(filename,"r");
+	traceFile=fopen(config->traceFileName,"r");
 	req=(struct req_info *)malloc(sizeof(struct req_info));
 	if(traceFile==NULL)
 	{
@@ -353,7 +343,6 @@ void queue_pop(struct trace_info *trace,struct req_info *req)
 	}
 	free(temp);
 }
-
 
 void queue_print(struct trace_info *trace)
 {
