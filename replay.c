@@ -9,7 +9,7 @@ void replay(char *configName)
 	struct config_info *config;
 	struct trace_info *trace;
 	struct req_info *req;
-	int fd;
+	int fd[10];
 	char *buf;
 	int i;
 	long long initTime,nowTime,reqTime,waitTime;
@@ -31,12 +31,19 @@ void replay(char *configName)
 	//printf("trace->outNum=%d\n",trace->outNum);
 	//printf("trace->latencySum=%lld\n",trace->latencySum);
 
-	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
-	if(fd < 0) 
+	printf("config->devNum=%d\n",config->deviceNum);
+	printf("dev 1=%s\n",config->device[0]);
+	printf("dev 2=%s\n",config->device[1]);
+	
+	for(i=0;i<config->deviceNum;i++)
 	{
-		fprintf(stderr, "Value of errno: %d\n", errno);
-	       	printf("Cannot open\n");
-       		exit(-1);
+		fd[i] = open(config->device[i], O_DIRECT | O_SYNC | O_RDWR); 
+		if(fd[i] < 0) 
+		{
+			fprintf(stderr, "Value of errno: %d\n", errno);
+	       		printf("Cannot open\n");
+       			exit(-1);
+		}
 	}
 
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
@@ -66,7 +73,14 @@ void replay(char *configName)
 			//usleep(waitTime);
 			nowTime=time_elapsed(initTime);
 		}
-		perform_aio(fd,buf,req,trace);
+		if(trace->outNum%2==0)
+		{
+			perform_aio(fd[0],buf,req,trace);
+		}
+		else
+		{
+			perform_aio(fd[1],buf,req,trace);
+		}
 	}
 	while(trace->inNum > trace->outNum)
 	{
@@ -121,6 +135,10 @@ static void IOCompleted(sigval_t sigval)
 
 	cb->trace->outNum++;
 	//printf("cb->trace->outNum=%d\n",cb->trace->outNum);
+	if(cb->trace->outNum%5==0)
+	{
+		printf("---has replayed %d\n",cb->trace->outNum);
+	}
 
 	free(cb->aiocb);
 	free(cb);
@@ -237,7 +255,7 @@ void config_read(struct config_info *config,const char *filename)
 
 		if(strcmp(line,"device")==0)
 		{
-			sscanf(line+value,"%s",config->device);
+			sscanf(line+value,"%s",config->device[config->deviceNum]);
 			config->deviceNum++;
 		}
 		else if(strcmp(line,"trace")==0)
