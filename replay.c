@@ -156,7 +156,7 @@ static void perform_aio(int fd, void *buf, struct req_info *req)
 		cb->aiocb->aio_buf = buf;
 	}
 
-//	cb->req=req;
+//	cb->req=req;	//WTF
 	cb->req->time=req->time;
 	cb->req->dev=req->dev;
 	cb->req->lba=req->lba;
@@ -262,7 +262,6 @@ void trace_read(struct trace_info *trace,const char *filename)
 	}
 	while(fgets(line,sizeof(line),traceFile))
 	{
-		printf("string length=%d\n",(int)strlen(line));
 		if(strlen(line)==2)
 		{
 			continue;
