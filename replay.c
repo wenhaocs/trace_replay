@@ -1,7 +1,7 @@
 #include "replay.h"
-void main()
+void main(int argc, char *argv[])
 {
-	replay("config.ini");
+	replay(argv[1]);
 }
 
 void replay(char *configName)
@@ -22,7 +22,9 @@ void replay(char *configName)
 	memset(req,0,sizeof(struct req_info));
 
 	config_read(config,configName);
+	printf("starting warm up with config %s----\n",configName);
 	trace_read(config,trace);
+	printf("starting replay IO trace %s----\n",config->traceFileName);
 
 	//queue_print(trace);
 	//printf("trace->inNum=%d\n",trace->inNum);
