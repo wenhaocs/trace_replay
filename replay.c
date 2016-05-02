@@ -51,7 +51,6 @@ void replay(char *configName)
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
 	{
 		fprintf(stderr, "Error allocating buffer\n");
-		printf("allocating buffer error\n");
 		return;
 	}
 	for(i=0;i<LARGEST_REQUEST_SIZE*BYTE_PER_BLOCK;i++)
@@ -115,7 +114,6 @@ static void handle_aio(sigval_t sigval)
 	{
 		if(error != ECANCELED)
 		{
-			printf("Error completing i/o:%d\n",error);
 			fprintf(stderr,"Error completing i/o:%d\n",error);
 		}
 		else
@@ -127,12 +125,11 @@ static void handle_aio(sigval_t sigval)
 	count=aio_return(cb->aiocb);
 	if(count<(int)cb->aiocb->aio_nbytes)
 	{
-		printf("Warning I/O completed:%db but requested:%ldb\n",
-			count,cb->aiocb->aio_nbytes);
 		fprintf(stderr, "Warning I/O completed:%db but requested:%ldb\n",
 			count,cb->aiocb->aio_nbytes);
 	}
-	fprintf(cb->trace->logFile,"%-16lf %-12lld %-5d %-2d %d \n",cb->req->time,cb->req->lba,cb->req->size,cb->req->type,latency);
+	fprintf(cb->trace->logFile,"%-16lf %-12lld %-5d %-2d %d \n",
+				cb->req->time,cb->req->lba,cb->req->size,cb->req->type,latency);
 	fflush(cb->trace->logFile);
 
 	cb->trace->outNum++;
