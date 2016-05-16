@@ -1,7 +1,12 @@
 #include "replay.h"
-void main(int argc, char *argv[])
+//void main(int argc, char *argv[])
+//{
+//	replay(argv[1]);
+//}
+int main()
 {
-	replay(argv[1]);
+    replay("config/config.ini");
+    replay("config/config1.ini");
 }
 
 void replay(char *configName)
@@ -74,17 +79,30 @@ void replay(char *configName)
 			//usleep(waitTime);
 			nowTime=time_elapsed(initTime);
 		}
-		if(trace->outNum%2==0)
+        /*********************************
+        *    First Come First Service
+        * ********************************/
+        if(req->lba < 20*1024*1024*2)
 		{
+            req->lba = req->lba % (RAMSIZE*2048);
 			submit_aio(fd[0],buf,req,trace);
 		}
-		else
+		else if(req->lba < 220*1024*1024*2)
 		{
 			submit_aio(fd[1],buf,req,trace);
-		}
+		}else
+        {
+			submit_aio(fd[2],buf,req,trace);
+        }
 	}
+    i=0;
 	while(trace->inNum > trace->outNum)
 	{
+        i++;
+        if(i>100)
+        {
+            break;
+        }
 		printf("trace->inNum=%d\n",trace->inNum);
 		printf("trace->outNum=%d\n",trace->outNum);
 		printf("begin sleepping 1 second------\n");
@@ -134,7 +152,7 @@ static void handle_aio(sigval_t sigval)
 
 	cb->trace->outNum++;
 	//printf("cb->trace->outNum=%d\n",cb->trace->outNum);
-	if(cb->trace->outNum%5==0)
+	if(cb->trace->outNum%1000==0)
 	{
 		printf("---has replayed %d\n",cb->trace->outNum);
 	}

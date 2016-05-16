@@ -20,6 +20,7 @@
 #define SUCCESS 1
 #define FAILURE 0
 #define BUFSIZE	300
+#define RAMSIZE 60 //MB
 
 #define MEM_ALIGN		512  // Memory alignment
 #define USE_GLOBAL_BUFF		1 
