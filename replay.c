@@ -5,8 +5,16 @@
 //}
 int main()
 {
-    replay("config/config.ini");
-    replay("config/config1.ini");
+    replay("config/web_2.ini");
+    replay("config/usr_1.ini"); //failed
+    replay("config/src1_1.ini");
+    replay("config/prxy_1.ini");
+    replay("config/proj_1.ini");
+    replay("config/prn_1.ini");
+    replay("config/hadoop13.ini");
+    replay("config/hadoop10.ini");
+    replay("config/backup5.ini");
+    replay("config/backup1.ini");
 }
 
 void replay(char *configName)
@@ -89,9 +97,11 @@ void replay(char *configName)
 		}
 		else if(req->lba < 220*1024*1024*2)
 		{
+            req->lba=req->lba-20*1024*1024*2;
 			submit_aio(fd[1],buf,req,trace);
 		}else
         {
+            req->lba=(req->lba-220*1024*1024*2)%(500*1024*1024*2);
 			submit_aio(fd[2],buf,req,trace);
         }
 	}
