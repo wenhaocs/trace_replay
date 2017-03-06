@@ -5,16 +5,7 @@
 //}
 int main()
 {
-    replay("config/web_2.ini");
-    replay("config/usr_1.ini"); //failed
-    replay("config/src1_1.ini");
-    replay("config/prxy_1.ini");
-    replay("config/proj_1.ini");
-    replay("config/prn_1.ini");
-    replay("config/hadoop13.ini");
-    replay("config/hadoop10.ini");
-    replay("config/backup5.ini");
-    replay("config/backup1.ini");
+    replay("config/config.ini");
 }
 
 void replay(char *configName)
@@ -22,7 +13,7 @@ void replay(char *configName)
 	struct config_info *config;
 	struct trace_info *trace;
 	struct req_info *req;
-	int fd[10];
+	int fd;
 	char *buf;
 	int i;
 	long long initTime,nowTime,reqTime,waitTime;
@@ -44,21 +35,14 @@ void replay(char *configName)
 	//printf("trace->outNum=%d\n",trace->outNum);
 	//printf("trace->latencySum=%lld\n",trace->latencySum);
 
-	printf("config->devNum=%d\n",config->deviceNum);
-	for(i=0;i<config->deviceNum;i++)
-	{
-		printf("config->device[%d]=%s\n",i,config->device[i]);
-	}
+	printf("config->device=%s\n",config->device);
 	
-	for(i=0;i<config->deviceNum;i++)
+	fd = open(config->device, O_DIRECT | O_SYNC | O_RDWR); 
+	if(fd < 0) 
 	{
-		fd[i] = open(config->device[i], O_DIRECT | O_SYNC | O_RDWR); 
-		if(fd[i] < 0) 
-		{
-			fprintf(stderr, "Value of errno: %d\n", errno);
-	       		printf("Cannot open\n");
-       			exit(-1);
-		}
+		fprintf(stderr, "Value of errno: %d\n", errno);
+       	printf("Cannot open\n");
+    	exit(-1);
 	}
 
 	if (posix_memalign((void**)&buf, MEM_ALIGN, LARGEST_REQUEST_SIZE * BYTE_PER_BLOCK))
@@ -87,23 +71,8 @@ void replay(char *configName)
 			//usleep(waitTime);
 			nowTime=time_elapsed(initTime);
 		}
-        /*********************************
-        *    First Come First Service
-        * ********************************/
-        if(req->lba < 20*1024*1024*2)
-		{
-            req->lba = req->lba % (RAMSIZE*2048);
-			submit_aio(fd[0],buf,req,trace);
-		}
-		else if(req->lba < 220*1024*1024*2)
-		{
-            req->lba=req->lba-20*1024*1024*2;
-			submit_aio(fd[1],buf,req,trace);
-		}else
-        {
-            req->lba=(req->lba-220*1024*1024*2)%(500*1024*1024*2);
-			submit_aio(fd[2],buf,req,trace);
-        }
+        
+	    submit_aio(fd,buf,req,trace);
 	}
     i=0;
 	while(trace->inNum > trace->outNum)
@@ -162,7 +131,7 @@ static void handle_aio(sigval_t sigval)
 
 	cb->trace->outNum++;
 	//printf("cb->trace->outNum=%d\n",cb->trace->outNum);
-	if(cb->trace->outNum%1000==0)
+	if(cb->trace->outNum%10000==0)
 	{
 		printf("---has replayed %d\n",cb->trace->outNum);
 	}
@@ -211,7 +180,6 @@ static void submit_aio(int fd, void *buf, struct req_info *req,struct trace_info
 
 	//cb->req=req;	//WTF
 	cb->req->time=req->time;
-	cb->req->dev=req->dev;
 	cb->req->lba=req->lba;
 	cb->req->size=req->size;
 	cb->req->type=req->type;
@@ -267,23 +235,22 @@ void config_read(struct config_info *config,const char *filename)
 		{
 			continue;
 		}
-       		ptr=strchr(line,'=');
-	        if(!ptr)
+    	ptr=strchr(line,'=');
+	    if(!ptr)
 		{
 			continue;
 		} 
-        	name=ptr-line;	//the end of name string+1
-       		value=name+1;	//the start of value string
-	        while(line[name-1]==' ') 
+       	name=ptr-line;	//the end of name string+1
+       	value=name+1;	//the start of value string
+	    while(line[name-1]==' ') 
 		{
 			name--;
 		}
-        	line[name]=0;
+       	line[name]=0;
 
 		if(strcmp(line,"device")==0)
 		{
-			sscanf(line+value,"%s",config->device[config->deviceNum]);
-			config->deviceNum++;
+			sscanf(line+value,"%s",config->device);
 		}
 		else if(strcmp(line,"trace")==0)
 		{
@@ -324,11 +291,12 @@ void trace_read(struct config_info *config,struct trace_info *trace)
 			continue;
 		}
 		trace->inNum++;	//track the process of IO requests
-		sscanf(line,"%lf %d %lld %d %d",&req->time,&req->dev,&req->lba,&req->size,&req->type);
+        //time:ms, lba:sectors, size:sectors, type:1<->write 0<-->read
+		sscanf(line,"%lf %lld %d %d",&req->time,&req->lba,&req->size,&req->type);
 		//push into request queue
 		req->time=req->time*1000;	//ms-->us
 		req->size=req->size*BYTE_PER_BLOCK;
-		req->lba=(req->lba%BLOCK_PER_DRIVE)*BYTE_PER_BLOCK;
+		req->lba=req->lba*BYTE_PER_BLOCK;
 		queue_push(trace,req);
 	}
 	fclose(traceFile);
@@ -351,7 +319,6 @@ void queue_push(struct trace_info *trace,struct req_info *req)
 	struct req_info* temp;
 	temp = (struct req_info *)malloc(sizeof(struct req_info));
 	temp->time = req->time;
-	temp->dev = req->dev;
 	temp->lba = req->lba;
 	temp->size = req->size;
 	temp->type = req->type;
@@ -376,7 +343,6 @@ void queue_pop(struct trace_info *trace,struct req_info *req)
 		return;
 	}
 	req->time = trace->front->time;
-	req->dev  = trace->front->dev;
 	req->lba  = trace->front->lba;
 	req->size = trace->front->size;
 	req->type = trace->front->type;	
@@ -397,7 +363,6 @@ void queue_print(struct trace_info *trace)
 	while(temp) 
 	{
 		printf("%lf ",temp->time);
-		printf("%d ",temp->dev);
 		printf("%lld ",temp->lba);
 		printf("%d ",temp->size);
 		printf("%d\n",temp->type);
