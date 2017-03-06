@@ -1,7 +1,15 @@
 # TraceReplayer
-gcc replay.c -lrt
 
-Notes
+## Trace File Format
+time(ms) lba(sectors) size(sectors) type(read:0,write:1)
+
+## Log File
+time(us) lba(bytes) size(bytes) type(0/1) latency(us)
+
+
+## Bug Notes
+
+the right way to compile: gcc replay.c -lrt
 
 error:	  aio.cc:(.text+0x156): undefined reference to `aio_read'
 
