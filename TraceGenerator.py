@@ -20,7 +20,7 @@ def get_device():
             devname = line_str.split()[1][1:-1]
             size = line_str.split()[2]
             size = size[0:size.find('G')]
-            return '/dev/'+devname, size
+            return '/dev/'+devname, int(size)
 
 def set_device(devname):
     config = ConfigParser.ConfigParser()
