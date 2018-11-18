@@ -17,7 +17,7 @@ def get_device():
     device_str = data.split('\n')[1:-1]
 
     for line_str in device_str:
-        if line_str.find('\xe2\x94') != -1:
+        if line_str.find('\xe2\x94') != -1 or line_str.find('`') != -1:
             devname = line_str.split()[1][1:-1]
             return '/dev/'+devname
 
