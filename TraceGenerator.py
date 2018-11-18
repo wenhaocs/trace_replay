@@ -7,19 +7,20 @@ import random
 
 iosize = 128      # KB
 iosize_sectors = 256  # number of sectors
-maximal_sectors = 100000000000000    # maximal number sectors
 default_avg_iops = 30.0 * 1024 / iosize
 default_stdv_iops = 5.0 * 1024 / iosize
 rw = 0
 
 def get_device():
-    data = subprocess.check_output(['lsblk', '-o', 'NAME'])
+    data = subprocess.check_output(['lsblk', '-o', 'NAME,SIZE'])
     device_str = data.split('\n')[1:-1]
 
     for line_str in device_str:
         if line_str.find('\xe2\x94') != -1 or line_str.find('`') != -1:
             devname = line_str.split()[1][1:-1]
-            return '/dev/'+devname
+            size = line_str.split()[2]
+            size = size[0:size.find('G')]
+            return '/dev/'+devname, size
 
 def set_device(devname):
     config = ConfigParser.ConfigParser()
@@ -28,7 +29,7 @@ def set_device(devname):
     with open('config/config.ini', 'wb') as configfile:
     	config.write(configfile)
 
-def generate(iops_array):
+def generate(iops_arrayi, maximal_sectors):
     filepath = 'trace/trace.txt'
     f = open(filepath, "w")
     
@@ -128,6 +129,7 @@ if __name__ == '__main__':
     
     iops_array = vary_array(iops_array, max_iops, stage_len, distrib)
 
-    devname = get_device()
+    devname,size = get_device()
     set_device(devname)
-    generate(iops_array)      
+    maximal_sectors = size * 1024 * 1024 * 2
+    generate(iops_array, maximal_sectors)      
