@@ -35,9 +35,9 @@ def generate(iops_array):
     offset = 0
     time_elapsed=0
     for iops in iops_array:
-        interval = 1000.0 / iops
+        interval = 1000 / iops         # Time is type of int
         timestamp = 0 # unit: ms
-        while timestamp <= 1000.0:
+        while timestamp <= 1000:
             string = str(time_elapsed+timestamp)+ ' ' + str(offset) + ' ' + str(iosize_sectors) + ' ' + str(rw) + '\n'
             f.write(string)
             timestamp = timestamp + interval
