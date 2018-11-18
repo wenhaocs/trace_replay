@@ -231,7 +231,7 @@ void config_read(struct config_info *config,const char *filename)
 	memset(line,0,sizeof(char)*BUFSIZE);
 	while(fgets(line,sizeof(line),configFile))
 	{
-		if(line[0]=='#'||line[0]==' ') 
+		if(line[0]=='#'||line[0]==' '||line[0]=='[') 
 		{
 			continue;
 		}
