@@ -36,7 +36,9 @@ def generate(iops_arrayi, maximal_sectors):
     offset = 0
     time_elapsed=0
     for iops in iops_array:
-        interval = 1000 / iops         # Time is type of int
+        if iops == 0:        # iops cannot be 0
+            continue
+        interval = 1000.0 / abs(iops)         # iops and interval must be positive
         timestamp = 0 # unit: ms
         while timestamp <= 1000:
             string = str(time_elapsed+timestamp)+ ' ' + str(offset) + ' ' + str(iosize_sectors) + ' ' + str(rw) + '\n'
@@ -130,6 +132,7 @@ if __name__ == '__main__':
     iops_array = vary_array(iops_array, max_iops, stage_len, distrib)
 
     devname,size = get_device()
+    print 'Device name %s. Size: %d' % (devname,size)
     set_device(devname)
     maximal_sectors = size * 1024 * 1024 * 2
     generate(iops_array, maximal_sectors)      
