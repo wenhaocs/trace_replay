@@ -1,4 +1,7 @@
 # TraceReplayer
+## Trace generation
+TraceGenerator_stable.py generates a stable I/O.
+E.g., python TraceGenerator_stable.py -w <not used> -f <the throutput of generating IO> -s <std set to 0.1>
 
 ## Trace File Format
 time(ms) lba(sectors) size(sectors) type(read:0,write:1)

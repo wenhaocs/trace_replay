@@ -11,7 +11,7 @@ default_avg_iops = 30.0 * 1024 / iosize
 default_stdv_iops = 5.0 * 1024 / iosize
 rw = 0
 
-def get_device():
+def get_device(devsize):
     data = subprocess.check_output(['lsblk', '-o', 'NAME,SIZE'])
     device_str = data.split('\n')[1:-1]
 
@@ -20,7 +20,8 @@ def get_device():
             devname = line_str.split()[1][1:-1]
             size = line_str.split()[2]
             size = size[0:size.find('G')]
-            return '/dev/'+devname, int(size)
+            if size == devsize:        # make sure it is the device the application requests
+                return '/dev/'+devname, int(size)
 
 def set_device(devname):
     config = ConfigParser.ConfigParser()
@@ -90,7 +91,7 @@ def vary_array(iops_array, max_iops, stage_len, distrib):
 
 
 if __name__ == '__main__':    
-    opts, args = getopt.getopt(sys.argv[1:],"hw:f:s:",["distrib=", "max=", "start="])
+    opts, args = getopt.getopt(sys.argv[1:],"hw:f:s:",["distrib=", "max=", "start=", "devsize="])
     for opt, arg in opts:
         if opt == '-h':
             print 'python TraceGenerator.py -w <warmup> -f <full> -s <stdv>'
@@ -104,6 +105,8 @@ if __name__ == '__main__':
         elif opt == '-s':
             stdv = float(arg)
             stdv_iops = stdv * 1024 / iosize
+        elif opt == '--devsize':
+            devsize = arg
 
     #warmup_len = 300   #5min
     #stable_len = 600   #10min
@@ -112,7 +115,7 @@ if __name__ == '__main__':
     #iops = np.random.normal(full_iops,stdv_iops,stable_len)
     #iops_array = np.append(iops_array, iops)
 
-    devname,size = get_device()
+    devname,size = get_device(devsize)
     print 'Device name %s. Size: %d' % (devname,size)
     set_device(devname)
     maximal_sectors = size * 1024 * 1024 * 2
